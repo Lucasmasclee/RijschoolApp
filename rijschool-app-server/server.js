@@ -11,8 +11,14 @@ app.use(cors());
 
 // Verbind met MongoDB
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("MongoDB verbonden"))
-    .catch(err => console.error("MongoDB fout:", err));
+    .then(() => {
+        console.log("MongoDB successfully connected");
+        console.log("Connection string:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@')); // Hide password in logs
+    })
+    .catch(err => {
+        console.error("MongoDB connection error:", err);
+        console.error("Connection string used:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@')); // Hide password in logs
+    });
 
 // Les Schema
 const LesSchema = new mongoose.Schema({
@@ -74,10 +80,17 @@ app.post("/api/rijscholen", async (req, res) => {
 
 app.get("/api/rijscholen", async (req, res) => {
     try {
+        console.log("Attempting to fetch rijscholen...");
         const rijscholen = await Rijschool.find();
+        console.log(`Found ${rijscholen.length} rijscholen`);
         res.json(rijscholen);
     } catch (error) {
-        res.status(500).json({ error: "Er is iets misgegaan" });
+        console.error("Error in GET /api/rijscholen:", error);
+        res.status(500).json({ 
+            error: "Er is iets misgegaan", 
+            details: error.message,
+            stack: error.stack 
+        });
     }
 });
 
@@ -137,6 +150,25 @@ app.get("/api/rijscholen/:naam", async (req, res) => {
     }
 });
 
+// Add a basic root route
+app.get("/", (req, res) => {
+    res.json({ message: "Rijschool API is running" });
+});
+
+// Add error handling middleware
+app.use((err, req, res, next) => {
+    console.error("Global error handler:", err);
+    res.status(500).json({
+        error: "Er is iets misgegaan",
+        details: err.message,
+        stack: err.stack
+    });
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server draait op poort ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log(`MongoDB URI set: ${process.env.MONGO_URI ? 'Yes' : 'No'}`);
+});
