@@ -64,7 +64,7 @@ public class RijschoolApp : MonoBehaviour
 
     public Rijschool selectedRijschool;
     public Leerling selectedLeerling;
-    private string apiUrl = "http://localhost:5000/api/rijscholen";
+    private string apiUrl = "https://rijschoolapp.onrender.com/api/rijscholen";
 
     
 
