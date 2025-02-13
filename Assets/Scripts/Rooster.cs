@@ -16,10 +16,14 @@ public class Rooster : MonoBehaviour
     [SerializeField] private List<Transform> dagenScrollview;
     private List<Image> wekenScrollViewButtons;
 
+    [SerializeField] private TextMeshProUGUI rijschoolnaam;
+
+
     [SerializeField] private List<GameObject> onlyForInstructors;
 
     [SerializeField] private GameObject lesPoolParent;
-    private List<GameObject> lesPool;
+    private List<GameObject> lesPool; // 60 les GameObjects
+    [SerializeField] private List<GameObject> LeraarLesLeerlingLes; // 1 les for instructor + 1 les for student
 
     private Les selectedLes;
     [SerializeField] private TMP_InputField lesBeginTijd;
@@ -110,14 +114,14 @@ public class Rooster : MonoBehaviour
             lesButton.onClick.RemoveAllListeners();
             obj.SetActive(false);
         }
-
         // Only proceed if we have a selected rijschool with a roster
         if (RijschoolApp.instance.selectedRijschool?.rooster == null)
         {
+            
             Debug.LogWarning("No rijschool selected or roster is null");
             return;
         }
-
+        rijschoolnaam.text = RijschoolApp.instance.selectedRijschool.naam;
         // Calculate actual week number
         int actualWeekNumber = (currentWeek + selectedWeek) % 52;
         if (actualWeekNumber == 0) actualWeekNumber = 52;
@@ -174,35 +178,55 @@ public class Rooster : MonoBehaviour
     {
         selectedLes = les;
 
-        // Deactivate all buttons first
+        // Reset visibility of UI elements
         reserveerButton.SetActive(false);
         verwijderReserving.SetActive(false);
         instructeurSelecteertLes.SetActive(false);
         leerlingSelecteertLes.SetActive(false);
-        //verwijderLesButton.SetActive(false);
-        //leerlingenGereserveerd.SetActive(false);
-        //lesToewijzen.SetActive(false);
 
-        if (roosterInstructor)
+        // Get the instructor and student detail GameObjects
+        GameObject instructorLes = LeraarLesLeerlingLes[0];
+        GameObject studentLes = LeraarLesLeerlingLes[1];
+        
+        // Update the lesson details for both views
+        if (selectedLes != null)
         {
-            instructeurSelecteertLes.SetActive(true);
-            // Instructor view
-            //verwijderLesButton.SetActive(true);
-            //leerlingenGereserveerd.SetActive(true);
-            //lesToewijzen.SetActive(true);
-        }
-        else
-        {
-            // Student view
-            leerlingSelecteertLes.SetActive(true);
-            if (RijschoolApp.instance.selectedLeerling != null)
+            // Update instructor and student lesson details
+            foreach (GameObject detailLes in new[] { instructorLes, studentLes })
             {
-                bool isReserved = selectedLes.gereserveerdDoorLeerling != null && 
-                    selectedLes.gereserveerdDoorLeerling.Any(l => 
-                        l.naam == RijschoolApp.instance.selectedLeerling.naam);
+                // Set the lesson details
+                TextMeshProUGUI[] texts = detailLes.GetComponentsInChildren<TextMeshProUGUI>();
+                texts[0].text = selectedLes.begintijd + " - " + selectedLes.eindtijd;
+                texts[1].text = selectedLes.notities;
 
-                reserveerButton.SetActive(!isReserved);
-                verwijderReserving.SetActive(isReserved);
+                // Set the color based on assigned student
+                Image lesImage = detailLes.GetComponent<Image>();
+                lesImage.color = lesManager.GetLeerlingColor(selectedLes.leerlingNaam);
+            }
+
+            // Show the appropriate view based on user type
+            if (roosterInstructor)
+            {
+                instructeurSelecteertLes.SetActive(true);
+                instructorLes.SetActive(true);
+                studentLes.SetActive(false);
+            }
+            else
+            {
+                // Student view
+                leerlingSelecteertLes.SetActive(true);
+                instructorLes.SetActive(false);
+                studentLes.SetActive(true);
+
+                if (RijschoolApp.instance.selectedLeerling != null)
+                {
+                    bool isReserved = selectedLes.gereserveerdDoorLeerling != null && 
+                        selectedLes.gereserveerdDoorLeerling.Any(l => 
+                            l.naam == RijschoolApp.instance.selectedLeerling.naam);
+
+                    reserveerButton.SetActive(!isReserved);
+                    verwijderReserving.SetActive(isReserved);
+                }
             }
         }
     }

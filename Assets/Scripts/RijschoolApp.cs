@@ -70,6 +70,7 @@ public class RijschoolApp : MonoBehaviour
 
     private async void Start()
     {
+        await LoadRijscholen();
         instance = this;
         SetSchermActive(true, false, false, false);
         selectedRijschool = new Rijschool();
@@ -159,7 +160,7 @@ public class RijschoolApp : MonoBehaviour
         voegLeerlingToeFrequentie.text = Mathf.Clamp(int.Parse(voegLeerlingToeFrequentie.text) - 1, 0, 20).ToString();
     }
 
-    public void SaveLeerling()
+    public async void SaveLeerling()
     {
         string naam = voegLeerlingToeNaam.text;
         int frequentie = int.Parse(voegLeerlingToeFrequentie.text);
@@ -188,7 +189,7 @@ public class RijschoolApp : MonoBehaviour
             // Only update the server if the rijschool already exists (has an ID/name)
             if (alleRijscholen.Any(r => r.naam == selectedRijschool.naam))
             {
-                UpdateRijschool(selectedRijschool);
+                await UpdateRijschool(selectedRijschool);
             }
             
             LoadLeerlingen();
@@ -253,6 +254,8 @@ public class RijschoolApp : MonoBehaviour
         }
         
         warningMessage.SetActive(false);
+        selectedRijschool = new Rijschool();
+        selectedRijschool.leerlingen = new List<Leerling>();
         selectedRijschool.naam = newName;
         selectedRijschool.beschrijving = maakRijschoolInputfields[1].text;
         selectedRijschool.wachtwoord = password;

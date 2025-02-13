@@ -427,7 +427,7 @@ GameObject:
   - component: {fileID: 2106408566771493488}
   - component: {fileID: 2159527753046231973}
   m_Layer: 5
-  m_Name: Text (TMP)
+  m_Name: textleerlingkiezen
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
