@@ -33,7 +33,10 @@ public class Rooster : MonoBehaviour
     private int selectedWeek = 0;
     private int selectedDay = 0;
 
-    [SerializeField] private List<GameObject> weekButtons;
+    [SerializeField] private Button previousWeekButton;
+    [SerializeField] private Button nextWeekButton;
+    [SerializeField] private TextMeshProUGUI weekDateText;
+    
     private int currentWeek;
 
     [SerializeField] private LesManager lesManager;
@@ -50,31 +53,87 @@ public class Rooster : MonoBehaviour
     //[SerializeField] private GameObject leerlingenGereserveerd;
     //[SerializeField] private GameObject lesToewijzen;
 
+    [SerializeField] private GameObject timeFormatWarning; // Reference to warning UI element
+
+    [SerializeField] private TMP_InputField startTijdInput;
+    [SerializeField] private TMP_InputField eindTijdInput;
+    [SerializeField] private GameObject invalidTimeFormatWarning;
+    [SerializeField] private GameObject createLes;
+
     private void Start()
     {
         instance = this;
+        
+        // Validate required references
+        if (lesPoolParent == null)
+        {
+            Debug.LogError("lesPoolParent is not assigned in the inspector!");
+            return;
+        }
+
+        if (dagenScrollview == null || dagenScrollview.Count == 0)
+        {
+            Debug.LogError("dagenScrollview list is not set up correctly!");
+            return;
+        }
+
+        if (weekDateText == null)
+        {
+            Debug.LogError("weekDateText is not assigned in the inspector!");
+            return;
+        }
+
+        if (rijschoolnaam == null)
+        {
+            Debug.LogError("rijschoolnaam is not assigned in the inspector!");
+            return;
+        }
+        
+        // Initialize lesPool from lesPoolParent
+        lesPool = new List<GameObject>();
+        foreach (Transform child in lesPoolParent.transform)
+        {
+            lesPool.Add(child.gameObject);
+        }
+
         // Get current week number
         currentWeek = System.Globalization.ISOWeek.GetWeekOfYear(System.DateTime.Now);
         
-        // Initialize week button texts
-        for (int i = 0; i < weekButtons.Count; i++)
-        {
-            int weekNumber = (currentWeek + i) % 52;
-            if (weekNumber == 0) weekNumber = 52;
+        // Initialize the week display
+        UpdateWeekDisplay();
+        //LoadLessen();
+    }
 
-            TextMeshProUGUI weekText = weekButtons[i].GetComponentsInChildren<TextMeshProUGUI>()[0];
-            weekText.text = $"Week {weekNumber}";
-        }
+    private void UpdateWeekDisplay()
+    {
+        // Get the date of Monday (first day) of the selected week
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1); // Get Monday of current week
+        monday = monday.AddDays(7 * selectedWeek); // Adjust for selected week offset
 
-        wekenScrollViewButtons = Enumerable.Range(0, wekenScrollView.transform.childCount)
-            .Select(i => wekenScrollView.transform.GetChild(i).gameObject.GetComponent<Image>())
-            .ToList();
+        // Get Sunday (last day) of the selected week
+        System.DateTime sunday = monday.AddDays(6);
 
-        lesPool = Enumerable.Range(0, lesPoolParent.transform.childCount)
-            .Select(i => lesPoolParent.transform.GetChild(i).gameObject)
-            .ToList();
+        // Format the date range text
+        string monthFormat = monday.Month == sunday.Month ? "" : " MMM";
+        string startDate = monday.ToString("dd" + monthFormat);
+        string endDate = sunday.ToString("dd MMM");
 
-        //SelectWeek(0);
+        weekDateText.text = $"{startDate} - {endDate}";
+    }
+
+    public void GoToPreviousWeek()
+    {
+        selectedWeek--;
+        UpdateWeekDisplay();
+        LoadLessen();
+    }
+
+    public void GoToNextWeek()
+    {
+        selectedWeek++;
+        UpdateWeekDisplay();
+        LoadLessen();
     }
 
     public void LoadKiesLeerlingButtons()
@@ -107,24 +166,39 @@ public class Rooster : MonoBehaviour
 
     public void LoadLessen()
     {
+        // Validate lesPool is initialized
+        if (lesPool == null || lesPool.Count == 0)
+        {
+            Debug.LogError("lesPool is not initialized or empty!");
+            return;
+        }
+
         // Deactivate all lesson objects first
         foreach (GameObject obj in lesPool)
         {
-            var lesButton = obj.GetComponent<Button>();
-            lesButton.onClick.RemoveAllListeners();
-            obj.SetActive(false);
+            if (obj != null)
+            {
+                var lesButton = obj.GetComponent<Button>();
+                if (lesButton != null)
+                {
+                    lesButton.onClick.RemoveAllListeners();
+                }
+                obj.SetActive(false);
+            }
         }
+
         // Only proceed if we have a selected rijschool with a roster
-        if (RijschoolApp.instance.selectedRijschool?.rooster == null)
+        if (RijschoolApp.instance?.selectedRijschool?.rooster == null)
         {
-            
             Debug.LogWarning("No rijschool selected or roster is null");
             return;
         }
+
         rijschoolnaam.text = RijschoolApp.instance.selectedRijschool.naam;
+
         // Calculate actual week number
         int actualWeekNumber = (currentWeek + selectedWeek) % 52;
-        if (actualWeekNumber == 0) actualWeekNumber = 52;
+        if (actualWeekNumber <= 0) actualWeekNumber += 52;
 
         // Get lessons for the selected week
         var weekLessen = RijschoolApp.instance.selectedRijschool.rooster
@@ -138,15 +212,25 @@ public class Rooster : MonoBehaviour
             .ToDictionary(g => g.Key, g => g.ToList());
 
         // Display lessons for each day
-        for (int dagIndex = 0; dagIndex < 7; dagIndex++)
+        for (int dagIndex = 0; dagIndex < dagenScrollview.Count; dagIndex++)
         {
+            if (dagenScrollview[dagIndex] == null)
+            {
+                Debug.LogError($"dagenScrollview[{dagIndex}] is null!");
+                continue;
+            }
+
             var dayOfWeek = (System.DayOfWeek)dagIndex;
             if (lessenPerDag.ContainsKey(dayOfWeek))
             {
                 foreach (Les les in lessenPerDag[dayOfWeek])
                 {
-                    if (poolIndex >= lesPool.Count) break;
-                    
+                    if (poolIndex >= lesPool.Count)
+                    {
+                        Debug.LogWarning("Not enough lesson objects in pool!");
+                        break;
+                    }
+
                     GameObject UIelement = lesPool[poolIndex];
                     poolIndex++;
 
@@ -233,6 +317,18 @@ public class Rooster : MonoBehaviour
 
     public async void SaveLes(int dagIndex)
     {
+        if (!ValidateTimeFormat(lesBeginTijd.text) || !ValidateTimeFormat(lesEindTijd.text))
+        {
+            timeFormatWarning.SetActive(true);
+            return;
+        }
+
+        timeFormatWarning.SetActive(false);
+        
+        // Format times consistently
+        string formattedBeginTijd = FormatTime(lesBeginTijd.text);
+        string formattedEindTijd = FormatTime(lesEindTijd.text);
+
         if (RijschoolApp.instance.selectedRijschool != null)
         {
             // Calculate actual week number
@@ -250,8 +346,8 @@ public class Rooster : MonoBehaviour
 
             Les nieuweLes = new Les
             {
-                begintijd = lesBeginTijd.text,
-                eindtijd = lesEindTijd.text,
+                begintijd = formattedBeginTijd,
+                eindtijd = formattedEindTijd,
                 notities = lesNotities.text,
                 datum = lesDate.ToString("dd-MM-yyyy"),
                 weekNummer = actualWeekNumber
@@ -324,23 +420,6 @@ public class Rooster : MonoBehaviour
         {
             Debug.LogWarning("Geen rijschool of les geselecteerd!");
         }
-    }
-
-    public void SelectWeek(int weekIndex)
-    {
-        selectedWeek = weekIndex;
-        print(selectedWeek + weekButtons[weekIndex].gameObject.name);
-        
-        // Reset all button colors
-        foreach (GameObject obj in weekButtons)
-        {
-            Image image = obj.GetComponent<Image>();
-            image.color = Color.white;
-        }
-        Image i = weekButtons[selectedWeek].gameObject.GetComponent<Image>();
-        i.color = Color.cyan;
-        
-        LoadLessen();
     }
 
     public void SelectDay(int day)
@@ -756,5 +835,272 @@ public class Rooster : MonoBehaviour
         // Save changes and refresh
         await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
         LoadLessen();
+    }
+
+    public async void GenerateScheduleFromAvailability()
+    {
+        if (RijschoolApp.instance.selectedRijschool == null) return;
+
+        var rijschool = RijschoolApp.instance.selectedRijschool;
+        var leerlingen = rijschool.leerlingen;
+        
+        // Clear existing automatically planned lessons
+        var weekLessen = rijschool.rooster.weken
+            .SelectMany(w => w.lessen)
+            .Where(l => l.isAutomatischGepland)
+            .ToList();
+        
+        foreach (var les in weekLessen)
+        {
+            les.leerlingNaam = null;
+            les.leerlingId = null;
+        }
+
+        // For each day of the week
+        string[] dagen = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+        foreach (string dag in dagen)
+        {
+            // Get instructor availability for this day
+            var instructeurSlots = rijschool.instructeurBeschikbaarheid
+                .FirstOrDefault(b => b.dag == dag)?.tijdslots ?? new List<TimeSlot>();
+
+            foreach (var instructeurSlot in instructeurSlots)
+            {
+                // Convert times to minutes for easier calculation
+                int startMinutes = ConvertTimeToMinutes(instructeurSlot.startTijd);
+                int endMinutes = ConvertTimeToMinutes(instructeurSlot.eindTijd);
+
+                // For each student
+                foreach (var leerling in leerlingen)
+                {
+                    // Get student availability for this day
+                    var leerlingSlots = leerling.beschikbaarheid
+                        .FirstOrDefault(b => b.dag == dag)?.tijdslots ?? new List<TimeSlot>();
+
+                    foreach (var leerlingSlot in leerlingSlots)
+                    {
+                        int leerlingStart = ConvertTimeToMinutes(leerlingSlot.startTijd);
+                        int leerlingEnd = ConvertTimeToMinutes(leerlingSlot.eindTijd);
+
+                        // Find overlapping time
+                        int overlapStart = Mathf.Max(startMinutes, leerlingStart);
+                        int overlapEnd = Mathf.Min(endMinutes, leerlingEnd);
+
+                        // If there's enough time for a lesson
+                        if (overlapEnd - overlapStart >= leerling.minutesPerLes)
+                        {
+                            // Create a new lesson
+                            Les nieuweLes = new Les
+                            {
+                                begintijd = ConvertMinutesToTime(overlapStart),
+                                eindtijd = ConvertMinutesToTime(overlapStart + leerling.minutesPerLes),
+                                leerlingNaam = leerling.naam,
+                                leerlingId = leerling.naam,
+                                isAutomatischGepland = true
+                                // Set other properties as needed
+                            };
+
+                            // Add lesson to the roster
+                            AddLessonToRoster(nieuweLes);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Save changes to server
+        await RijschoolApp.instance.UpdateRijschool(rijschool);
+        LoadLessen();
+    }
+
+    private int ConvertTimeToMinutes(string time)
+    {
+        time = time.Replace('.', ':');
+        var parts = time.Split(':');
+        return int.Parse(parts[0]) * 60 + int.Parse(parts[1]);
+    }
+
+    private string ConvertMinutesToTime(int minutes)
+    {
+        int hours = minutes / 60;
+        int mins = minutes % 60;
+        return $"{hours:D2}:{mins:D2}";
+    }
+
+    private bool ValidateTimeFormat(string time)
+    {
+        if (string.IsNullOrEmpty(time)) return false;
+
+        // Replace . with : for consistency
+        time = time.Replace('.', ':');
+
+        // Split the time string
+        string[] parts = time.Split(':');
+        if (parts.Length != 2) return false;
+
+        // Parse hours and minutes
+        if (!int.TryParse(parts[0], out int hours) || !int.TryParse(parts[1], out int minutes))
+            return false;
+
+        // Validate ranges
+        if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59)
+            return false;
+
+        return true;
+    }
+
+    private string FormatTime(string time)
+    {
+        // Replace . with : and ensure proper formatting
+        time = time.Replace('.', ':');
+        string[] parts = time.Split(':');
+        int hours = int.Parse(parts[0]);
+        int minutes = int.Parse(parts[1]);
+        return $"{hours:D2}:{minutes:D2}"; // Ensures 2-digit format
+    }
+
+    public void OnTimeInputEndEdit(TMP_InputField timeInput)
+    {
+        if (!ValidateTimeFormat(timeInput.text))
+        {
+            invalidTimeFormatWarning.SetActive(true);
+            timeInput.text = ""; // Clear invalid input
+            return;
+        }
+        
+        invalidTimeFormatWarning.SetActive(false);
+        timeInput.text = FormatTime(timeInput.text); // Format to consistent HH:mm
+    }
+
+    private void AddLessonToRoster(Les nieuweLes)
+    {
+        if (RijschoolApp.instance.selectedRijschool?.rooster == null) return;
+
+        var rijschool = RijschoolApp.instance.selectedRijschool;
+        
+        // Parse the date to get week number
+        System.DateTime lesDate = System.DateTime.ParseExact(nieuweLes.datum, "dd-MM-yyyy", null);
+        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(lesDate);
+        int year = lesDate.Year;
+
+        // Find or create the week in the roster
+        Week targetWeek = rijschool.rooster.weken.FirstOrDefault(w => 
+            w.weekNummer == weekNum && w.jaar == year);
+
+        if (targetWeek == null)
+        {
+            targetWeek = new Week { weekNummer = weekNum, jaar = year };
+            rijschool.rooster.weken.Add(targetWeek);
+        }
+
+        // Add the lesson to the week
+        if (targetWeek.lessen == null)
+        {
+            targetWeek.lessen = new List<Les>();
+        }
+        
+        targetWeek.lessen.Add(nieuweLes);
+    }
+
+    public async void SaveTimeSlot()
+    {
+        if (!ValidateTimeFormat(startTijdInput.text) || !ValidateTimeFormat(eindTijdInput.text))
+        {
+            invalidTimeFormatWarning.SetActive(true);
+            return;
+        }
+
+        invalidTimeFormatWarning.SetActive(false);
+
+        string formattedStartTijd = FormatTime(startTijdInput.text);
+        string formattedEindTijd = FormatTime(eindTijdInput.text);
+        string selectedDag = GetDayName(selectedDay);
+
+        if (RijschoolApp.instance.selectedRijschool != null)
+        {
+            // Initialize the availability list if it doesn't exist
+            if (roosterInstructor)
+            {
+                if (RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid == null)
+                {
+                    RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid = new List<Beschikbaarheid>();
+                }
+
+                // Find or create availability for selected day
+                var dagBeschikbaarheid = RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid
+                    .FirstOrDefault(b => b.dag == selectedDag);
+
+                if (dagBeschikbaarheid == null)
+                {
+                    dagBeschikbaarheid = new Beschikbaarheid 
+                    { 
+                        dag = selectedDag,
+                        tijdslots = new List<TimeSlot>()
+                    };
+                    RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid.Add(dagBeschikbaarheid);
+                }
+
+                // Add new time slot
+                dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
+                { 
+                    startTijd = formattedStartTijd,
+                    eindTijd = formattedEindTijd
+                });
+            }
+            else if (RijschoolApp.instance.selectedLeerling != null)
+            {
+                if (RijschoolApp.instance.selectedLeerling.beschikbaarheid == null)
+                {
+                    RijschoolApp.instance.selectedLeerling.beschikbaarheid = new List<Beschikbaarheid>();
+                }
+
+                // Find or create availability for selected day
+                var dagBeschikbaarheid = RijschoolApp.instance.selectedLeerling.beschikbaarheid
+                    .FirstOrDefault(b => b.dag == selectedDag);
+
+                if (dagBeschikbaarheid == null)
+                {
+                    dagBeschikbaarheid = new Beschikbaarheid 
+                    { 
+                        dag = selectedDag,
+                        tijdslots = new List<TimeSlot>()
+                    };
+                    RijschoolApp.instance.selectedLeerling.beschikbaarheid.Add(dagBeschikbaarheid);
+                }
+
+                // Add new time slot
+                dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
+                { 
+                    startTijd = formattedStartTijd,
+                    eindTijd = formattedEindTijd
+                });
+            }
+
+            // Save changes to server
+            await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
+
+            // Clear inputs and hide panel
+            startTijdInput.text = "";
+            eindTijdInput.text = "";
+            createLes.SetActive(false);
+
+            // Refresh the display
+            LoadLessen();
+        }
+    }
+
+    private string GetDayName(int dayIndex)
+    {
+        switch (dayIndex)
+        {
+            case 0: return "Monday";
+            case 1: return "Tuesday";
+            case 2: return "Wednesday";
+            case 3: return "Thursday";
+            case 4: return "Friday";
+            case 5: return "Saturday";
+            case 6: return "Sunday";
+            default: return "Monday";
+        }
     }
 }

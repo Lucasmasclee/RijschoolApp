@@ -48,19 +48,37 @@ const RoosterSchema = new mongoose.Schema({
     weken: [WeekSchema]
 });
 
+// Leerling Schema
+const LeerlingSchema = new mongoose.Schema({
+    naam: { type: String, required: true },
+    frequentie: { type: Number, required: true },
+    colorIndex: { type: Number, required: true },
+    minutesPerLes: { type: Number, required: true },
+    beschikbaarheid: [{
+        dag: { type: String, required: true },
+        tijdslots: [{
+            startTijd: { type: String, required: true },
+            eindTijd: { type: String, required: true }
+        }]
+    }]
+});
+
 // Rijschool Schema
 const RijschoolSchema = new mongoose.Schema({
     naam: { type: String, required: true },
     beschrijving: { type: String, required: true },
     wachtwoord: { type: String, required: true },
-    leerlingen: [{
-        naam: { type: String, required: true },
-        frequentie: { type: Number, required: true },
-        colorIndex: { type: Number, required: true }
-    }],
+    leerlingen: [LeerlingSchema],
     rooster: {
         weken: [WeekSchema]
-    }
+    },
+    instructeurBeschikbaarheid: [{
+        dag: { type: String, required: true },
+        tijdslots: [{
+            startTijd: { type: String, required: true },
+            eindTijd: { type: String, required: true }
+        }]
+    }]
 });
 
 const Rijschool = mongoose.model("Rijschool", RijschoolSchema);

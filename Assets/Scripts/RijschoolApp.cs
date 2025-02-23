@@ -138,7 +138,7 @@ public class RijschoolApp : MonoBehaviour
             if (selectedRijschool != null)
             {
                 rooster.SetActive(true);
-                Rooster.instance.RoosterForInstructors(true);
+                //Rooster.instance.RoosterForInstructors(true);
                 Rooster.instance.LoadLessen();
                 SetSchermActive(false, false, false, true);
 
@@ -516,6 +516,22 @@ public class Leerling
     public string naam;
     public int frequentie;
     public int colorIndex;
+    public int minutesPerLes = 60; // Default lesson duration of 60 minutes
+    public List<Beschikbaarheid> beschikbaarheid = new List<Beschikbaarheid>();
+}
+
+[System.Serializable]
+public class Beschikbaarheid
+{
+    public string dag; // "Monday", "Tuesday", etc.
+    public List<TimeSlot> tijdslots = new List<TimeSlot>();
+}
+
+[System.Serializable]
+public class TimeSlot
+{
+    public string startTijd; // Format: "HH:mm"
+    public string eindTijd;  // Format: "HH:mm"
 }
 
 [System.Serializable]
@@ -526,9 +542,10 @@ public class Les
     public string notities;
     public string datum;        // Format: "dd-MM-yyyy"
     public int weekNummer;      // 1-52
-    public string leerlingId;   // Optional: to link lessons to students
-    public string leerlingNaam; // Name of the assigned student
-    public List<Leerling> gereserveerdDoorLeerling;
+    public string leerlingId;   
+    public string leerlingNaam;
+    public bool isAutomatischGepland;
+    public List<Leerling> gereserveerdDoorLeerling; // New property for student reservations
     
     public Les()
     {
@@ -536,17 +553,6 @@ public class Les
         datum = now.ToString("dd-MM-yyyy");
         weekNummer = System.Globalization.ISOWeek.GetWeekOfYear(now);
         gereserveerdDoorLeerling = new List<Leerling>();
-    }
-
-    // Add a method to deep copy a Leerling object
-    private Leerling CopyLeerling(Leerling original)
-    {
-        return new Leerling
-        {
-            naam = original.naam,
-            frequentie = original.frequentie,
-            colorIndex = original.colorIndex
-        };
     }
 }
 
@@ -611,10 +617,12 @@ public class Rijschool
     public string wachtwoord;
     public List<Leerling> leerlingen;
     public LesRooster rooster;
+    public List<Beschikbaarheid> instructeurBeschikbaarheid; // New property for instructor availability
 
     public Rijschool()
     {
         leerlingen = new List<Leerling>();
         rooster = new LesRooster();
+        instructeurBeschikbaarheid = new List<Beschikbaarheid>();
     }
 }
