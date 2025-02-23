@@ -60,6 +60,12 @@ public class Rooster : MonoBehaviour
     [SerializeField] private GameObject invalidTimeFormatWarning;
     [SerializeField] private GameObject createLes;
 
+    // Add these constants at the top of the Rooster class
+    private const float HOUR_HEIGHT = 100f; // Height per hour in the schedule
+    private const float START_HOUR = 6f; // Schedule starts at 6:00
+    private const float LESSON_WIDTH = 130f;
+    private const float LESSON_X_POSITION = 72f;
+
     private void Start()
     {
         instance = this;
@@ -126,14 +132,14 @@ public class Rooster : MonoBehaviour
     {
         selectedWeek--;
         UpdateWeekDisplay();
-        LoadLessen();
+        LoadLessen(); // This already handles both normal lessons and availability timeslots
     }
 
     public void GoToNextWeek()
     {
         selectedWeek++;
         UpdateWeekDisplay();
-        LoadLessen();
+        LoadLessen(); // This already handles both normal lessons and availability timeslots
     }
 
     public void LoadKiesLeerlingButtons()
@@ -158,6 +164,7 @@ public class Rooster : MonoBehaviour
     public void RoosterForInstructors(bool instructors)
     {
         roosterInstructor = instructors;
+        Debug.Log($"Setting roosterInstructor to: {instructors}");
         foreach(GameObject obj in onlyForInstructors)
         {
             obj.SetActive(roosterInstructor);
@@ -166,25 +173,33 @@ public class Rooster : MonoBehaviour
 
     public void LoadLessen()
     {
+        // First, deactivate all lesson objects
+        print(lesPool.Count);
+        foreach (GameObject obj in lesPool)
+        {
+            if (obj != null)
+            {
+                obj.SetActive(false);
+            }
+        }
+
+        // Check if we should display availability instead of lessons
+        if (roosterInstructor)
+        {
+            DisplayAvailabilityTimeSlots();
+            return;
+        }
+        else if (RijschoolApp.instance.selectedLeerling != null)
+        {
+            DisplayStudentAvailabilityTimeSlots();
+            return;
+        }
+
         // Validate lesPool is initialized
         if (lesPool == null || lesPool.Count == 0)
         {
             Debug.LogError("lesPool is not initialized or empty!");
             return;
-        }
-
-        // Deactivate all lesson objects first
-        foreach (GameObject obj in lesPool)
-        {
-            if (obj != null)
-            {
-                var lesButton = obj.GetComponent<Button>();
-                if (lesButton != null)
-                {
-                    lesButton.onClick.RemoveAllListeners();
-                }
-                obj.SetActive(false);
-            }
         }
 
         // Only proceed if we have a selected rijschool with a roster
@@ -1004,6 +1019,8 @@ public class Rooster : MonoBehaviour
 
     public async void SaveTimeSlot()
     {
+        Debug.Log($"[SaveTimeSlot] Current roosterInstructor value: {roosterInstructor}");
+
         if (!ValidateTimeFormat(startTijdInput.text) || !ValidateTimeFormat(eindTijdInput.text))
         {
             invalidTimeFormatWarning.SetActive(true);
@@ -1016,73 +1033,93 @@ public class Rooster : MonoBehaviour
         string formattedEindTijd = FormatTime(eindTijdInput.text);
         string selectedDag = GetDayName(selectedDay);
 
-        Debug.Log($"Saving time slot: {selectedDag} {formattedStartTijd} - {formattedEindTijd}");
+        // Get current week info from the selected week
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1); // Get Monday of current week
+        monday = monday.AddDays(7 * selectedWeek); // Adjust for selected week offset
+        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        int year = monday.Year;
+
+        Debug.Log($"Saving time slot: {selectedDag} {formattedStartTijd} - {formattedEindTijd} for week {weekNum}, year {year}");
 
         if (RijschoolApp.instance.selectedRijschool != null)
         {
             try 
             {
+                var rijschool = RijschoolApp.instance.selectedRijschool;
+                
                 if (roosterInstructor)
                 {
                     Debug.Log("Saving instructor availability");
-                    if (RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid == null)
+                    if (rijschool.instructeurBeschikbaarheid == null)
                     {
-                        Debug.Log("Initializing instructor availability list");
-                        RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid = new List<Beschikbaarheid>();
+                        rijschool.instructeurBeschikbaarheid = new List<Beschikbaarheid>();
                     }
 
-                    var dagBeschikbaarheid = RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid
-                        .FirstOrDefault(b => b.dag == selectedDag);
+                    // Find or create the day's availability for the specific week
+                    var dagBeschikbaarheid = rijschool.instructeurBeschikbaarheid
+                        .FirstOrDefault(b => b.dag == selectedDag && 
+                                           b.weekNummer == weekNum && 
+                                           b.jaar == year);
 
                     if (dagBeschikbaarheid == null)
                     {
-                        Debug.Log($"Creating new availability for {selectedDag}");
                         dagBeschikbaarheid = new Beschikbaarheid 
                         { 
                             dag = selectedDag,
+                            weekNummer = weekNum,
+                            jaar = year,
                             tijdslots = new List<TimeSlot>()
                         };
-                        RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid.Add(dagBeschikbaarheid);
+                        rijschool.instructeurBeschikbaarheid.Add(dagBeschikbaarheid);
                     }
 
-                    dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
+                    var newTimeSlot = new TimeSlot 
                     { 
                         startTijd = formattedStartTijd,
                         eindTijd = formattedEindTijd
-                    });
-                    Debug.Log($"Added time slot to {selectedDag}");
+                    };
+                    dagBeschikbaarheid.tijdslots.Add(newTimeSlot);
                 }
                 else if (RijschoolApp.instance.selectedLeerling != null)
                 {
-                    Debug.Log("Saving student availability");
-                    if (RijschoolApp.instance.selectedLeerling.beschikbaarheid == null)
+                    Debug.Log("[SaveTimeSlot] Saving student availability");
+                    var leerling = RijschoolApp.instance.selectedLeerling;
+                    
+                    if (leerling.beschikbaarheid == null)
                     {
-                        RijschoolApp.instance.selectedLeerling.beschikbaarheid = new List<Beschikbaarheid>();
+                        leerling.beschikbaarheid = new List<Beschikbaarheid>();
                     }
 
-                    var dagBeschikbaarheid = RijschoolApp.instance.selectedLeerling.beschikbaarheid
-                        .FirstOrDefault(b => b.dag == selectedDag);
+                    // Find or create the day's availability for the specific week
+                    var dagBeschikbaarheid = leerling.beschikbaarheid
+                        .FirstOrDefault(b => b.dag == selectedDag && 
+                                           b.weekNummer == weekNum && 
+                                           b.jaar == year);
 
                     if (dagBeschikbaarheid == null)
                     {
                         dagBeschikbaarheid = new Beschikbaarheid 
                         { 
                             dag = selectedDag,
+                            weekNummer = weekNum,
+                            jaar = year,
                             tijdslots = new List<TimeSlot>()
                         };
-                        RijschoolApp.instance.selectedLeerling.beschikbaarheid.Add(dagBeschikbaarheid);
+                        leerling.beschikbaarheid.Add(dagBeschikbaarheid);
                     }
 
-                    dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
+                    var newTimeSlot = new TimeSlot 
                     { 
                         startTijd = formattedStartTijd,
                         eindTijd = formattedEindTijd
-                    });
+                    };
+                    dagBeschikbaarheid.tijdslots.Add(newTimeSlot);
                 }
 
-                Debug.Log("Attempting to save to server...");
-                await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
-                Debug.Log("Save completed successfully");
+                // Save to server
+                Debug.Log("[SaveTimeSlot] Saving to server...");
+                await RijschoolApp.instance.UpdateRijschool(rijschool);
 
                 startTijdInput.text = "";
                 eindTijdInput.text = "";
@@ -1091,12 +1128,8 @@ public class Rooster : MonoBehaviour
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Error saving time slot: {e.Message}\n{e.StackTrace}");
+                Debug.LogError($"[SaveTimeSlot] Error: {e.Message}\n{e.StackTrace}");
             }
-        }
-        else
-        {
-            Debug.LogError("No rijschool selected!");
         }
     }
 
@@ -1112,6 +1145,145 @@ public class Rooster : MonoBehaviour
             case 5: return "Saturday";
             case 6: return "Sunday";
             default: return "Monday";
+        }
+    }
+
+    // Add this helper method to calculate position and size
+    private (float yPosition, float height) CalculateTimeSlotTransform(string startTime, string endTime)
+    {
+        // Convert times to hours (as float)
+        float startHour = ConvertTimeToHours(startTime);
+        float endHour = ConvertTimeToHours(endTime);
+        
+        // Calculate height (in pixels)
+        float height = (endHour - startHour) * HOUR_HEIGHT;
+        
+        // Calculate Y position
+        // Note: We subtract from 0 because Unity's Y axis goes up, but we want to go down
+        float yPosition = -((startHour - START_HOUR) * HOUR_HEIGHT + height / 2f);
+        
+        return (yPosition, height);
+    }
+
+    private float ConvertTimeToHours(string time)
+    {
+        // Convert "HH:mm" to float hours
+        string[] parts = time.Split(':');
+        float hours = float.Parse(parts[0]);
+        float minutes = float.Parse(parts[1]);
+        return hours + (minutes / 60f);
+    }
+
+    // Add this method to display availability timeslots
+    private void DisplayAvailabilityTimeSlots()
+    {
+        if (RijschoolApp.instance?.selectedRijschool?.instructeurBeschikbaarheid == null)
+        {
+            print("rijschool instance null");return;
+        }
+        int poolIndex = 0;
+        
+        // For each day
+        for (int dagIndex = 0; dagIndex < dagenScrollview.Count; dagIndex++)
+        {
+            string dagNaam = GetDayName(dagIndex);
+            
+            // Find availability for this day
+            var dagBeschikbaarheid = RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid
+                .FirstOrDefault(b => b.dag == dagNaam);
+
+            if (dagBeschikbaarheid?.tijdslots != null)
+            {
+                foreach (var tijdslot in dagBeschikbaarheid.tijdslots)
+                {
+                    if (poolIndex >= lesPool.Count)
+                    {
+                        Debug.LogWarning("Not enough lesson objects in pool!");
+                        break;
+                    }
+
+                    GameObject lesObject = lesPool[poolIndex];
+                    poolIndex++;
+
+                    // Set parent to correct day column
+                    lesObject.transform.SetParent(dagenScrollview[dagIndex]);
+                    
+                    // Calculate position and size
+                    var (yPos, height) = CalculateTimeSlotTransform(tijdslot.startTijd, tijdslot.eindTijd);
+                    
+                    // Set local position and size
+                    RectTransform rectTransform = lesObject.GetComponent<RectTransform>();
+                    rectTransform.localPosition = new Vector3(LESSON_X_POSITION, yPos, 0);
+                    rectTransform.sizeDelta = new Vector2(LESSON_WIDTH, height);
+
+                    // Update the text components
+                    TextMeshProUGUI[] texts = lesObject.GetComponentsInChildren<TextMeshProUGUI>();
+                    texts[0].text = $"{tijdslot.startTijd} - {tijdslot.eindTijd}";
+                    texts[1].text = "Available";
+
+                    // Set the color
+                    Image lesImage = lesObject.GetComponent<Image>();
+                    lesImage.color = Color.green;
+
+                    lesObject.SetActive(true);
+                }
+            }
+        }
+    }
+
+    // Add this method to display student availability timeslots
+    private void DisplayStudentAvailabilityTimeSlots()
+    {
+        if (RijschoolApp.instance?.selectedLeerling?.beschikbaarheid == null)
+            return;
+
+        int poolIndex = 0;
+
+        // For each day
+        for (int dagIndex = 0; dagIndex < dagenScrollview.Count; dagIndex++)
+        {
+            string dagNaam = GetDayName(dagIndex);
+            
+            // Find availability for this day
+            var dagBeschikbaarheid = RijschoolApp.instance.selectedLeerling.beschikbaarheid
+                .FirstOrDefault(b => b.dag == dagNaam);
+
+            if (dagBeschikbaarheid?.tijdslots != null)
+            {
+                foreach (var tijdslot in dagBeschikbaarheid.tijdslots)
+                {
+                    if (poolIndex >= lesPool.Count)
+                    {
+                        Debug.LogWarning("Not enough lesson objects in pool!");
+                        break;
+                    }
+
+                    GameObject lesObject = lesPool[poolIndex];
+                    poolIndex++;
+
+                    // Set parent to correct day column
+                    lesObject.transform.SetParent(dagenScrollview[dagIndex]);
+                    
+                    // Calculate position and size
+                    var (yPos, height) = CalculateTimeSlotTransform(tijdslot.startTijd, tijdslot.eindTijd);
+                    
+                    // Set local position and size
+                    RectTransform rectTransform = lesObject.GetComponent<RectTransform>();
+                    rectTransform.localPosition = new Vector3(LESSON_X_POSITION, yPos, 0);
+                    rectTransform.sizeDelta = new Vector2(LESSON_WIDTH, height);
+
+                    // Update the text components
+                    TextMeshProUGUI[] texts = lesObject.GetComponentsInChildren<TextMeshProUGUI>();
+                    texts[0].text = $"{tijdslot.startTijd} - {tijdslot.eindTijd}";
+                    texts[1].text = "Available";
+
+                    // Set the color
+                    Image lesImage = lesObject.GetComponent<Image>();
+                    lesImage.color = lesManager.GetLeerlingColor(RijschoolApp.instance.selectedLeerling.naam);
+
+                    lesObject.SetActive(true);
+                }
+            }
         }
     }
 }

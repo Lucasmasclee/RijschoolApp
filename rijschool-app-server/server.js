@@ -44,6 +44,8 @@ const TimeSlotSchema = new mongoose.Schema({
 
 const BeschikbaarheidSchema = new mongoose.Schema({
     dag: { type: String, required: true },
+    weekNummer: { type: Number, required: true },
+    jaar: { type: Number, required: true },
     tijdslots: [TimeSlotSchema]
 });
 
@@ -76,9 +78,9 @@ const RijschoolSchema = new mongoose.Schema({
     leerlingen: [LeerlingSchema],
     rooster: {
         weken: [{
-            weekNummer: Number,
-            jaar: Number,
-            lessen: [LesSchema]
+            lessen: [LesSchema],
+            weekNummer: { type: Number, required: true },
+            jaar: { type: Number, required: true }
         }]
     },
     instructeurBeschikbaarheid: [BeschikbaarheidSchema]

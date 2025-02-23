@@ -138,7 +138,7 @@ public class RijschoolApp : MonoBehaviour
             if (selectedRijschool != null)
             {
                 rooster.SetActive(true);
-                //Rooster.instance.RoosterForInstructors(true);
+                Rooster.instance.RoosterForInstructors(true);
                 Rooster.instance.LoadLessen();
                 SetSchermActive(false, false, false, true);
 
@@ -313,15 +313,18 @@ public class RijschoolApp : MonoBehaviour
 
     private void UpdateRijscholenUI(List<Rijschool> rijscholenList)
     {
+        foreach(GameObject obj in rijscholenUI)
+        {
+            obj.SetActive(false);
+        }
         for (int i = 0; i < rijscholenList.Count && i < rijscholenUI.Count; i++)
         {
             GameObject uiElement = rijscholenUI[i];
             uiElement.SetActive(true);
             
             TextMeshProUGUI[] texts = uiElement.GetComponentsInChildren<TextMeshProUGUI>();
-            texts[0].text = "Rijschool";
-            texts[1].text = rijscholenList[i].naam;
-            texts[2].text = rijscholenList[i].beschrijving;
+            texts[0].text = rijscholenList[i].naam;
+            texts[1].text = rijscholenList[i].beschrijving;
         }
     }
 
@@ -394,6 +397,16 @@ public class RijschoolApp : MonoBehaviour
     {
         string jsonData = JsonUtility.ToJson(rijschool);
         Debug.Log($"Sending update to server: {jsonData}");
+        
+        // Log specific availability data
+        if (rijschool.instructeurBeschikbaarheid != null)
+        {
+            Debug.Log($"Instructor availability count: {rijschool.instructeurBeschikbaarheid.Count}");
+            foreach (var beschikbaarheid in rijschool.instructeurBeschikbaarheid)
+            {
+                Debug.Log($"Day: {beschikbaarheid.dag}, Slots: {beschikbaarheid.tijdslots?.Count ?? 0}");
+            }
+        }
 
         using (UnityWebRequest www = UnityWebRequest.Put($"{apiUrl}/{rijschool.naam}", jsonData))
         {
@@ -404,6 +417,7 @@ public class RijschoolApp : MonoBehaviour
                 if (www.result == UnityWebRequest.Result.Success)
                 {
                     Debug.Log("Rijschool updated successfully");
+                    Debug.Log($"Server response: {www.downloadHandler.text}");
                 }
                 else
                 {
@@ -525,6 +539,8 @@ public class Leerling
 public class Beschikbaarheid
 {
     public string dag;
+    public int weekNummer;
+    public int jaar;
     public List<TimeSlot> tijdslots;
 
     public Beschikbaarheid()
