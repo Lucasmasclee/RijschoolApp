@@ -1016,76 +1016,87 @@ public class Rooster : MonoBehaviour
         string formattedEindTijd = FormatTime(eindTijdInput.text);
         string selectedDag = GetDayName(selectedDay);
 
+        Debug.Log($"Saving time slot: {selectedDag} {formattedStartTijd} - {formattedEindTijd}");
+
         if (RijschoolApp.instance.selectedRijschool != null)
         {
-            // Initialize the availability list if it doesn't exist
-            if (roosterInstructor)
+            try 
             {
-                if (RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid == null)
+                if (roosterInstructor)
                 {
-                    RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid = new List<Beschikbaarheid>();
-                }
+                    Debug.Log("Saving instructor availability");
+                    if (RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid == null)
+                    {
+                        Debug.Log("Initializing instructor availability list");
+                        RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid = new List<Beschikbaarheid>();
+                    }
 
-                // Find or create availability for selected day
-                var dagBeschikbaarheid = RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid
-                    .FirstOrDefault(b => b.dag == selectedDag);
+                    var dagBeschikbaarheid = RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid
+                        .FirstOrDefault(b => b.dag == selectedDag);
 
-                if (dagBeschikbaarheid == null)
-                {
-                    dagBeschikbaarheid = new Beschikbaarheid 
+                    if (dagBeschikbaarheid == null)
+                    {
+                        Debug.Log($"Creating new availability for {selectedDag}");
+                        dagBeschikbaarheid = new Beschikbaarheid 
+                        { 
+                            dag = selectedDag,
+                            tijdslots = new List<TimeSlot>()
+                        };
+                        RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid.Add(dagBeschikbaarheid);
+                    }
+
+                    dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
                     { 
-                        dag = selectedDag,
-                        tijdslots = new List<TimeSlot>()
-                    };
-                    RijschoolApp.instance.selectedRijschool.instructeurBeschikbaarheid.Add(dagBeschikbaarheid);
+                        startTijd = formattedStartTijd,
+                        eindTijd = formattedEindTijd
+                    });
+                    Debug.Log($"Added time slot to {selectedDag}");
+                }
+                else if (RijschoolApp.instance.selectedLeerling != null)
+                {
+                    Debug.Log("Saving student availability");
+                    if (RijschoolApp.instance.selectedLeerling.beschikbaarheid == null)
+                    {
+                        RijschoolApp.instance.selectedLeerling.beschikbaarheid = new List<Beschikbaarheid>();
+                    }
+
+                    var dagBeschikbaarheid = RijschoolApp.instance.selectedLeerling.beschikbaarheid
+                        .FirstOrDefault(b => b.dag == selectedDag);
+
+                    if (dagBeschikbaarheid == null)
+                    {
+                        dagBeschikbaarheid = new Beschikbaarheid 
+                        { 
+                            dag = selectedDag,
+                            tijdslots = new List<TimeSlot>()
+                        };
+                        RijschoolApp.instance.selectedLeerling.beschikbaarheid.Add(dagBeschikbaarheid);
+                    }
+
+                    dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
+                    { 
+                        startTijd = formattedStartTijd,
+                        eindTijd = formattedEindTijd
+                    });
                 }
 
-                // Add new time slot
-                dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
-                { 
-                    startTijd = formattedStartTijd,
-                    eindTijd = formattedEindTijd
-                });
+                Debug.Log("Attempting to save to server...");
+                await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
+                Debug.Log("Save completed successfully");
+
+                startTijdInput.text = "";
+                eindTijdInput.text = "";
+                createLes.SetActive(false);
+                LoadLessen();
             }
-            else if (RijschoolApp.instance.selectedLeerling != null)
+            catch (System.Exception e)
             {
-                if (RijschoolApp.instance.selectedLeerling.beschikbaarheid == null)
-                {
-                    RijschoolApp.instance.selectedLeerling.beschikbaarheid = new List<Beschikbaarheid>();
-                }
-
-                // Find or create availability for selected day
-                var dagBeschikbaarheid = RijschoolApp.instance.selectedLeerling.beschikbaarheid
-                    .FirstOrDefault(b => b.dag == selectedDag);
-
-                if (dagBeschikbaarheid == null)
-                {
-                    dagBeschikbaarheid = new Beschikbaarheid 
-                    { 
-                        dag = selectedDag,
-                        tijdslots = new List<TimeSlot>()
-                    };
-                    RijschoolApp.instance.selectedLeerling.beschikbaarheid.Add(dagBeschikbaarheid);
-                }
-
-                // Add new time slot
-                dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
-                { 
-                    startTijd = formattedStartTijd,
-                    eindTijd = formattedEindTijd
-                });
+                Debug.LogError($"Error saving time slot: {e.Message}\n{e.StackTrace}");
             }
-
-            // Save changes to server
-            await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
-
-            // Clear inputs and hide panel
-            startTijdInput.text = "";
-            eindTijdInput.text = "";
-            createLes.SetActive(false);
-
-            // Refresh the display
-            LoadLessen();
+        }
+        else
+        {
+            Debug.LogError("No rijschool selected!");
         }
     }
 

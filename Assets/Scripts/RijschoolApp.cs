@@ -392,32 +392,28 @@ public class RijschoolApp : MonoBehaviour
 
     public async Task UpdateRijschool(Rijschool rijschool)
     {
-        string updateUrl = $"{apiUrl}/{rijschool.naam}"; // Adjust this based on your API endpoint
         string jsonData = JsonUtility.ToJson(rijschool);
+        Debug.Log($"Sending update to server: {jsonData}");
 
-        using (UnityWebRequest www = new UnityWebRequest(updateUrl, "PUT"))
+        using (UnityWebRequest www = UnityWebRequest.Put($"{apiUrl}/{rijschool.naam}", jsonData))
         {
             www.SetRequestHeader("Content-Type", "application/json");
-            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonData);
-            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            www.downloadHandler = new DownloadHandlerBuffer();
-
             try
             {
                 await www.SendWebRequest();
-
                 if (www.result == UnityWebRequest.Result.Success)
                 {
-                    Debug.Log("Rijschool succesvol bijgewerkt!");
+                    Debug.Log("Rijschool updated successfully");
                 }
                 else
                 {
                     Debug.LogError($"Error updating rijschool: {www.error}");
+                    Debug.LogError($"Response: {www.downloadHandler.text}");
                 }
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Exception updating rijschool: {e.Message}");
+                Debug.LogError($"Exception during rijschool update: {e.Message}");
             }
         }
     }

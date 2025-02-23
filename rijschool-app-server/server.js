@@ -36,6 +36,17 @@ const LesSchema = new mongoose.Schema({
     }]
 });
 
+// Update the schemas to include availability
+const TimeSlotSchema = new mongoose.Schema({
+    startTijd: { type: String, required: true },
+    eindTijd: { type: String, required: true }
+});
+
+const BeschikbaarheidSchema = new mongoose.Schema({
+    dag: { type: String, required: true },
+    tijdslots: [TimeSlotSchema]
+});
+
 // Week Schema
 const WeekSchema = new mongoose.Schema({
     weekNummer: { type: Number, required: true },
@@ -53,32 +64,24 @@ const LeerlingSchema = new mongoose.Schema({
     naam: { type: String, required: true },
     frequentie: { type: Number, required: true },
     colorIndex: { type: Number, required: true },
-    minutesPerLes: { type: Number, required: true },
-    beschikbaarheid: [{
-        dag: { type: String, required: true },
-        tijdslots: [{
-            startTijd: { type: String, required: true },
-            eindTijd: { type: String, required: true }
-        }]
-    }]
+    minutesPerLes: { type: Number, default: 60 },
+    beschikbaarheid: [BeschikbaarheidSchema]
 });
 
 // Rijschool Schema
 const RijschoolSchema = new mongoose.Schema({
     naam: { type: String, required: true },
-    beschrijving: { type: String, required: true },
+    beschrijving: { type: String },
     wachtwoord: { type: String, required: true },
     leerlingen: [LeerlingSchema],
     rooster: {
-        weken: [WeekSchema]
-    },
-    instructeurBeschikbaarheid: [{
-        dag: { type: String, required: true },
-        tijdslots: [{
-            startTijd: { type: String, required: true },
-            eindTijd: { type: String, required: true }
+        weken: [{
+            weekNummer: Number,
+            jaar: Number,
+            lessen: [LesSchema]
         }]
-    }]
+    },
+    instructeurBeschikbaarheid: [BeschikbaarheidSchema]
 });
 
 const Rijschool = mongoose.model("Rijschool", RijschoolSchema);
