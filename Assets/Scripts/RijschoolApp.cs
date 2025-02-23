@@ -512,22 +512,32 @@ public class Leerling
     public string naam;
     public int frequentie;
     public int colorIndex;
-    public int minutesPerLes = 60; // Default lesson duration of 60 minutes
-    public List<Beschikbaarheid> beschikbaarheid = new List<Beschikbaarheid>();
+    public int minutesPerLes = 60;
+    public List<Beschikbaarheid> beschikbaarheid;
+
+    public Leerling()
+    {
+        beschikbaarheid = new List<Beschikbaarheid>();
+    }
 }
 
 [System.Serializable]
 public class Beschikbaarheid
 {
-    public string dag; // "Monday", "Tuesday", etc.
-    public List<TimeSlot> tijdslots = new List<TimeSlot>();
+    public string dag;
+    public List<TimeSlot> tijdslots;
+
+    public Beschikbaarheid()
+    {
+        tijdslots = new List<TimeSlot>();
+    }
 }
 
 [System.Serializable]
 public class TimeSlot
 {
-    public string startTijd; // Format: "HH:mm"
-    public string eindTijd;  // Format: "HH:mm"
+    public string startTijd;
+    public string eindTijd;
 }
 
 [System.Serializable]
@@ -613,7 +623,7 @@ public class Rijschool
     public string wachtwoord;
     public List<Leerling> leerlingen;
     public LesRooster rooster;
-    public List<Beschikbaarheid> instructeurBeschikbaarheid; // New property for instructor availability
+    public List<Beschikbaarheid> instructeurBeschikbaarheid;
 
     public Rijschool()
     {

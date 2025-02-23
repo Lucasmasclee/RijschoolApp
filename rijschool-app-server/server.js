@@ -119,13 +119,14 @@ app.put("/api/rijscholen/:naam", async (req, res) => {
     try {
         console.log("Updating rijschool:", req.params.naam);
         console.log("Update data:", req.body);
+        console.log("Instructor availability:", req.body.instructeurBeschikbaarheid);
 
         const updatedRijschool = await Rijschool.findOneAndUpdate(
             { naam: req.params.naam },
             req.body,
             { 
-                new: true,  // Returns the updated document
-                runValidators: true  // Ensures the update follows schema validation
+                new: true,
+                runValidators: true
             }
         );
 
@@ -133,6 +134,7 @@ app.put("/api/rijscholen/:naam", async (req, res) => {
             return res.status(404).json({ error: "Rijschool niet gevonden" });
         }
 
+        console.log("Updated rijschool:", updatedRijschool);
         res.json(updatedRijschool);
     } catch (error) {
         console.error("Update error:", error);
