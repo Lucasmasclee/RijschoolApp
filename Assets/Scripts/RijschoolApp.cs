@@ -13,33 +13,33 @@ public class RijschoolApp : MonoBehaviour
     public List<Color> leerlingKleuren = new List<Color>
     {
         new Color(0.95f, 0.23f, 0.23f),    // Bright Red
-        new Color(0.13f, 0.55f, 0.13f),    // Forest Green
+        new Color(0.13f, 0.35f, 0.13f),    // Dark Forest Green (darkened)
         new Color(0.20f, 0.30f, 0.95f),    // Royal Blue
         new Color(1.00f, 0.75f, 0.00f),    // Golden Yellow
         new Color(0.60f, 0.00f, 0.60f),    // Purple
         new Color(1.00f, 0.45f, 0.00f),    // Orange
-        new Color(0.00f, 0.70f, 0.70f),    // Teal
+        new Color(0.00f, 0.50f, 0.70f),    // Changed from Teal to Blue-leaning Teal
         new Color(0.85f, 0.44f, 0.84f),    // Orchid
         new Color(0.54f, 0.27f, 0.07f),    // Brown
-        new Color(0.00f, 0.50f, 0.25f),    // Sea Green
+        new Color(0.00f, 0.30f, 0.15f),    // Darker Sea Green (darkened)
         new Color(0.85f, 0.22f, 0.45f),    // Crimson
         new Color(0.42f, 0.35f, 0.80f),    // Slate Blue
         new Color(0.70f, 0.70f, 0.00f),    // Olive
-        new Color(0.25f, 0.88f, 0.82f),    // Turquoise
+        new Color(0.25f, 0.58f, 0.82f),    // Changed from Turquoise to Sky Blue
         new Color(0.93f, 0.51f, 0.93f),    // Violet
         new Color(1.00f, 0.55f, 0.41f),    // Coral
         new Color(0.18f, 0.31f, 0.31f),    // Dark Slate Gray
         new Color(0.94f, 0.90f, 0.55f),    // Khaki
         new Color(0.58f, 0.00f, 0.83f),    // Purple Blue
         new Color(0.80f, 0.36f, 0.36f),    // Indian Red
-        new Color(0.24f, 0.70f, 0.44f),    // Medium Sea Green
+        new Color(0.15f, 0.40f, 0.25f),    // Darker Medium Sea Green (darkened)
         new Color(0.93f, 0.66f, 0.93f),    // Plum
         new Color(0.60f, 0.40f, 0.12f),    // Saddle Brown
         new Color(0.00f, 0.75f, 1.00f),    // Deep Sky Blue
         new Color(1.00f, 0.65f, 0.79f),    // Light Pink
         new Color(0.54f, 0.17f, 0.89f),    // Blue Violet
         new Color(0.80f, 0.52f, 0.25f),    // Peru
-        new Color(0.49f, 0.99f, 0.00f),    // Lime Green
+        new Color(0.29f, 0.69f, 0.00f),    // Changed from Lime Green to Darker Lime
         new Color(0.96f, 0.87f, 0.70f),    // Wheat
         new Color(0.25f, 0.41f, 0.88f)     // Royal Blue
     };
@@ -48,6 +48,7 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private List<GameObject> rijscholenUI;
     [SerializeField] private TMP_InputField voegLeerlingToeNaam;
     [SerializeField] private TextMeshProUGUI voegLeerlingToeFrequentie;
+    [SerializeField] private TMP_InputField voegLeerlingToeMinutesPerLes;
     [SerializeField] private Transform rijscholenUIParent;
     [SerializeField] private List<GameObject> leerlingenPool;
     [SerializeField] private GameObject nogGeenRijschoolWaarschuwing;
@@ -167,11 +168,19 @@ public class RijschoolApp : MonoBehaviour
         
         if (selectedRijschool != null)
         {
+            // Parse the minutes per les, with a default of 60 if parsing fails
+            int minutesPerLes = 60;
+            if (!string.IsNullOrEmpty(voegLeerlingToeMinutesPerLes.text))
+            {
+                int.TryParse(voegLeerlingToeMinutesPerLes.text, out minutesPerLes);
+            }
+
             Leerling nieuweLeerling = new Leerling
             {
                 naam = naam,
                 frequentie = frequentie,
-                colorIndex = GetNextAvailableColorIndex()
+                colorIndex = GetNextAvailableColorIndex(),
+                minutesPerLes = minutesPerLes  // Set the new value
             };
             
             if (selectedRijschool.leerlingen == null)
@@ -185,6 +194,7 @@ public class RijschoolApp : MonoBehaviour
             // Clear input fields after successful save
             voegLeerlingToeNaam.text = "";
             voegLeerlingToeFrequentie.text = "0";
+            voegLeerlingToeMinutesPerLes.text = "60";  // Reset to default value
             
             // Only update the server if the rijschool already exists (has an ID/name)
             if (alleRijscholen.Any(r => r.naam == selectedRijschool.naam))
