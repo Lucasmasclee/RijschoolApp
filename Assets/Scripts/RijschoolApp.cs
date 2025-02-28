@@ -59,6 +59,7 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private GameObject wrongPasswordButton;
     [SerializeField] private GameObject maakRijschoolGameobject;
     [SerializeField] private GameObject mijnRijschoolButton;
+    [SerializeField] private GameObject eigenRijschoolIndicator; // This will be shown when viewing own driving school
 
     private List<Rijschool> alleRijscholen;
     private List<Rijschool> filteredRijscholen;
@@ -109,6 +110,36 @@ public class RijschoolApp : MonoBehaviour
                     ListRijschool rijscholen = JsonUtility.FromJson<ListRijschool>("{\"rijschoolList\":" + jsonResponse + "}");
                     alleRijscholen = rijscholen.rijschoolList;
                     filteredRijscholen = alleRijscholen;
+
+                    // Check if user has their own driving school
+                    if (PlayerPrefs.HasKey("MijnRijschool"))
+                    {
+                        string eigenRijschoolNaam = PlayerPrefs.GetString("MijnRijschool");
+                        
+                        // Find the instructor's driving school
+                        Rijschool eigenRijschool = alleRijscholen.FirstOrDefault(r => 
+                            r.naam.Equals(eigenRijschoolNaam, System.StringComparison.OrdinalIgnoreCase));
+
+                        if (eigenRijschool != null)
+                        {
+                            // Remove the driving school from its current position
+                            alleRijscholen.Remove(eigenRijschool);
+                            // Add it to the beginning of the list
+                            alleRijscholen.Insert(0, eigenRijschool);
+                            filteredRijscholen = alleRijscholen;
+
+                            // Show the indicator if it exists
+                            if (eigenRijschoolIndicator != null)
+                            {
+                                eigenRijschoolIndicator.SetActive(true);
+                            }
+                        }
+                    }
+                    else if (eigenRijschoolIndicator != null)
+                    {
+                        eigenRijschoolIndicator.SetActive(false);
+                    }
+
                     UpdateRijscholenUI(alleRijscholen);
                 }
                 else
