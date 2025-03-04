@@ -67,7 +67,9 @@ const LeerlingSchema = new mongoose.Schema({
     frequentie: { type: Number, required: true },
     colorIndex: { type: Number, required: true },
     minutesPerLes: { type: Number, default: 60 },
-    beschikbaarheid: [BeschikbaarheidSchema]
+    beschikbaarheid: [BeschikbaarheidSchema],
+    woonPlaats: { type: String },  // New field
+    wachtwoord: { type: String }   // New field
 });
 
 // Rijschool Schema
@@ -75,6 +77,7 @@ const RijschoolSchema = new mongoose.Schema({
     naam: { type: String, required: true },
     beschrijving: { type: String },
     wachtwoord: { type: String, required: true },
+    woonPlaats: { type: String },  // New field
     leerlingen: [LeerlingSchema],
     rooster: {
         weken: [{

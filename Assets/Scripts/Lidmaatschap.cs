@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Purchasing;
 using TMPro;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class Lidmaatschap : MonoBehaviour, IStoreListener
 {
@@ -23,14 +24,21 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     [SerializeField] private Button yearlySubButton;
     [SerializeField] private Button restorePurchaseButton;
     [SerializeField] private GameObject loadingSpinner;
+    [SerializeField] private GameObject verifyLeraar;
+    [SerializeField] private TMP_InputField password;
+    [SerializeField] private GameObject correctPassword;
+    [SerializeField] private GameObject incorrectPassword;
+    [SerializeField] private GameObject leraarButton;
 
     private DateTime trialEndDate;
     private bool isSubscribed = false;
+    private List<string> validPasswords = new List<string>() { "planner2", "planner3", "planner4", "planner5", "planner6", "planner7", "planner8", "planner9", "planner10", "planner11", "planner12", "planner13", "planner14", "planner15", "planner16", "planner17", "planner18", "planner19", "planner20", }; // You should populate this with valid passwords
 
     private void Start()
     {
-        InitializePurchasing();
-        CheckSubscriptionStatus();
+        //InitializePurchasing();
+        //CheckSubscriptionStatus();
+        leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
     }
 
     private void InitializePurchasing()
@@ -126,6 +134,10 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
             args.purchasedProduct.definition.id == yearlySubID)
         {
             isSubscribed = true;
+            UnityAnalyticsManager.Instance.TrackSubscription(
+                args.purchasedProduct.definition.id,
+                args.purchasedProduct.metadata.localizedPrice
+            );
             subscriptionPopup.SetActive(false);
             mainContent.SetActive(true);
         }
@@ -136,6 +148,10 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     public void OnPurchaseFailed(Product product, PurchaseFailureReason failureReason)
     {
         loadingSpinner.SetActive(false);
+        UnityAnalyticsManager.Instance.TrackSubscriptionFailure(
+            product.definition.id,
+            failureReason.ToString()
+        );
         Debug.LogError($"Purchase failed: {product.definition.id}, reason: {failureReason}");
         // Show error message to user
     }
@@ -148,6 +164,30 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     public void OnInitializeFailed(InitializationFailureReason error, string message)
     {
         Debug.LogError($"Purchasing initialization failed: {error}, message: {message}");
+    }
+
+    public void OnLeraarButtonClicked()
+    {
+        if (!PlayerPrefs.HasKey("LeraarVerified"))
+        {
+            verifyLeraar.SetActive(true);
+        }
+    }
+
+    public void CheckPassword()
+    {
+        if (validPasswords.Contains(password.text))
+        {
+            correctPassword.SetActive(true);
+            incorrectPassword.SetActive(false);
+            PlayerPrefs.SetInt("LeraarVerified", 1);
+            PlayerPrefs.Save();
+        }
+        else
+        {
+            correctPassword.SetActive(false);
+            incorrectPassword.SetActive(true);
+        }
     }
 
     // Update is called once per frame

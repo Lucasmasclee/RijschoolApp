@@ -13,7 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: Mascelli
-  productName: FitnessApp
+  productName: Rijles Planner
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b: 0.1254902, a: 1}
@@ -161,7 +161,7 @@ PlayerSettings:
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
-    Android: com.Mascelli.FitnessApp
+    Android: com.Mascelli.RijlesPlanner
     Standalone: com.DefaultCompany.2DProject
   buildNumber:
     Standalone: 0
@@ -169,7 +169,7 @@ PlayerSettings:
     iPhone: 0
     tvOS: 0
   overrideDefaultApplicationIdentifier: 1
-  AndroidBundleVersionCode: 10
+  AndroidBundleVersionCode: 15
   AndroidMinSdkVersion: 22
   AndroidTargetSdkVersion: 0
   AndroidPreferredInstallLocation: 1
@@ -288,7 +288,7 @@ PlayerSettings:
   - m_BuildTarget: 
     m_Icons:
     - serializedVersion: 2
-      m_Icon: {fileID: 0}
+      m_Icon: {fileID: 2800000, guid: 81be1f586af034640b4948c2262246e5, type: 3}
       m_Width: 128
       m_Height: 128
       m_Kind: 0
@@ -811,10 +811,10 @@ PlayerSettings:
   apiCompatibilityLevel: 6
   activeInputHandler: 0
   windowsGamepadBackendHint: 0
-  cloudProjectId: fb0c2882-1a28-4d10-b6e5-a56bc62122b1
+  cloudProjectId: d89fa7e7-2f96-4a61-9628-4e4bd1a45800
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: FitnessApp
+  projectName: RijschoolApp
   organizationId: lucasmasclee
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0

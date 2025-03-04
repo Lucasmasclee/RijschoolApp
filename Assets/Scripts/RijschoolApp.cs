@@ -6,6 +6,7 @@ using UnityEngine.Networking;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Linq;
+using System;
 
 public class RijschoolApp : MonoBehaviour
 {
@@ -60,6 +61,15 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private GameObject maakRijschoolGameobject;
     [SerializeField] private GameObject mijnRijschoolButton;
     [SerializeField] private GameObject eigenRijschoolIndicator; // This will be shown when viewing own driving school
+    [SerializeField] private TextMeshProUGUI ingelogdAlsText;
+    [SerializeField] private GameObject maakrijschoolbevestigen;
+    [SerializeField] private List<TMP_InputField> editRijschoolInputFields; // Name, Description, Password, Woonplaats
+    [SerializeField] private GameObject nameExistsWarning;
+    [SerializeField] private GameObject klikMijnRijschool;
+    [SerializeField] private GameObject klikMijnRijschoolButton; // do not delete
+    [SerializeField] private GameObject leerlingNaamWaarschuwing;
+    [SerializeField] private TextMeshProUGUI weekOffsetText;
+    private int pendingLeerlingRemoval = -1;  // Store the index of student pending removal
 
     private List<Rijschool> alleRijscholen;
     private List<Rijschool> filteredRijscholen;
@@ -82,18 +92,48 @@ public class RijschoolApp : MonoBehaviour
         alleRijscholen = new List<Rijschool>();
         filteredRijscholen = new List<Rijschool>();
 
+        // Set button interactable state based on whether user has a driving school
+        if (maakrijschoolbevestigen != null)
+        {
+            UnityEngine.UI.Button button = maakrijschoolbevestigen.GetComponent<UnityEngine.UI.Button>();
+            if (button != null)
+            {
+                klikMijnRijschoolButton.SetActive(PlayerPrefs.HasKey("MijnRijschool"));
+                button.interactable = !PlayerPrefs.HasKey("MijnRijschool");
+            }
+        }
+
         // Load rijscholen at start
         await LoadRijscholen();
 
-        LoadLeerlingen();
+        Rooster.instance.UpdateOverzichtLeerlingen();
+
+        // Initialize edit input fields if they exist
+        if (editRijschoolInputFields != null && editRijschoolInputFields.Count >= 4)
+        {
+            UpdateEditRijschoolFields();
+        }
     }
 
     public void SetSchermActive(bool start, bool leraar, bool leerling, bool rooster)
     {
+        // Track screen exit for current screen
+        if (schermen[0].activeSelf) UnityAnalyticsManager.Instance.TrackScreenExit("StartScherm");
+        if (schermen[1].activeSelf) UnityAnalyticsManager.Instance.TrackScreenExit("LeraarScherm");
+        if (schermen[2].activeSelf) UnityAnalyticsManager.Instance.TrackScreenExit("LeerlingScherm");
+        if (schermen[3].activeSelf) UnityAnalyticsManager.Instance.TrackScreenExit("RoosterScherm");
+
+        // Set new screen states
         schermen[0].SetActive(start);
         schermen[1].SetActive(leraar);
         schermen[2].SetActive(leerling);
         schermen[3].SetActive(rooster);
+
+        // Track screen view for new active screen
+        if (start) UnityAnalyticsManager.Instance.TrackScreenView("StartScherm");
+        if (leraar) UnityAnalyticsManager.Instance.TrackScreenView("LeraarScherm");
+        if (leerling) UnityAnalyticsManager.Instance.TrackScreenView("LeerlingScherm");
+        if (rooster) UnityAnalyticsManager.Instance.TrackScreenView("RoosterScherm");
     }
 
     private async Task LoadRijscholen()
@@ -163,17 +203,18 @@ public class RijschoolApp : MonoBehaviour
         else
         {
             string rijschoolNaam = PlayerPrefs.GetString("MijnRijschool");
-            // Find the rijschool in alleRijscholen
             selectedRijschool = alleRijscholen.FirstOrDefault(r => 
                 r.naam.Equals(rijschoolNaam, System.StringComparison.OrdinalIgnoreCase));
             
             if (selectedRijschool != null)
             {
+                UnityAnalyticsManager.Instance.TrackDrivingSchoolAccess(rijschoolNaam);
+                UnityAnalyticsManager.Instance.TrackScreenView("RoosterScherm");
                 rooster.SetActive(true);
                 Rooster.instance.RoosterForInstructors(true);
                 Rooster.instance.LoadLessen();
                 SetSchermActive(false, false, false, true);
-
+                UpdateEditRijschoolFields();
             }
             else
             {
@@ -192,13 +233,57 @@ public class RijschoolApp : MonoBehaviour
         voegLeerlingToeFrequentie.text = Mathf.Clamp(int.Parse(voegLeerlingToeFrequentie.text) - 1, 0, 20).ToString();
     }
 
+    private string GenerateUniquePassword(string studentName, List<Leerling> existingStudents)
+    {
+        System.Random random = new System.Random();
+        string password;
+        bool isUnique;
+        
+        do
+        {
+            // Generate a 6-digit number
+            int randomNumber = random.Next(100000, 1000000);
+            password = studentName + randomNumber.ToString();
+            
+            // Check if this password is unique
+            isUnique = !existingStudents.Any(s => s.wachtwoord == password);
+        } while (!isUnique);
+        
+        return password;
+    }
+
     public async void SaveLeerling()
     {
         string naam = voegLeerlingToeNaam.text;
         int frequentie = int.Parse(voegLeerlingToeFrequentie.text);
         
+        // Get the warning text component
+        TextMeshProUGUI warningText = leerlingNaamWaarschuwing.GetComponentInChildren<TextMeshProUGUI>();
+        
+        // Check for empty name
+        if (string.IsNullOrWhiteSpace(naam))
+        {
+            leerlingNaamWaarschuwing.SetActive(true);
+            warningText.text = "Vul een geldige naam in";
+            return;
+        }
+
         if (selectedRijschool != null)
         {
+            // Check if name already exists (case insensitive)
+            bool nameExists = selectedRijschool.leerlingen?.Any(l => 
+                l.naam.Equals(naam, System.StringComparison.OrdinalIgnoreCase)) ?? false;
+
+            if (nameExists)
+            {
+                leerlingNaamWaarschuwing.SetActive(true);
+                warningText.text = "Naam wordt al gebruikt";
+                return;
+            }
+
+            // Hide warning if we got this far
+            leerlingNaamWaarschuwing.SetActive(false);
+
             // Parse the minutes per les, with a default of 60 if parsing fails
             int minutesPerLes = 60;
             if (!string.IsNullOrEmpty(voegLeerlingToeMinutesPerLes.text))
@@ -206,12 +291,17 @@ public class RijschoolApp : MonoBehaviour
                 int.TryParse(voegLeerlingToeMinutesPerLes.text, out minutesPerLes);
             }
 
+            // Generate unique password for the new student
+            string uniquePassword = GenerateUniquePassword(naam, selectedRijschool.leerlingen ?? new List<Leerling>());
+
             Leerling nieuweLeerling = new Leerling
             {
                 naam = naam,
                 frequentie = frequentie,
                 colorIndex = GetNextAvailableColorIndex(),
-                minutesPerLes = minutesPerLes  // Set the new value
+                minutesPerLes = minutesPerLes,
+                wachtwoord = uniquePassword,
+                woonPlaats = "" // Initialize empty, can be set later if needed
             };
             
             if (selectedRijschool.leerlingen == null)
@@ -220,12 +310,12 @@ public class RijschoolApp : MonoBehaviour
             }
             
             selectedRijschool.leerlingen.Add(nieuweLeerling);
-            Debug.Log($"Leerling {naam} toegevoegd aan {selectedRijschool.naam}");
+            UnityAnalyticsManager.Instance.TrackStudentCreation(naam, frequentie, minutesPerLes);
+            UnityAnalyticsManager.Instance.TrackStudentAdded(selectedRijschool.naam, naam);
+            Debug.Log($"Leerling {naam} toegevoegd aan {selectedRijschool.naam} met wachtwoord {uniquePassword}");
 
-            // Clear input fields after successful save
+            // Only reset the name input field, keep frequency and minutesPerLes
             voegLeerlingToeNaam.text = "";
-            voegLeerlingToeFrequentie.text = "0";
-            voegLeerlingToeMinutesPerLes.text = "60";  // Reset to default value
             
             // Only update the server if the rijschool already exists (has an ID/name)
             if (alleRijscholen.Any(r => r.naam == selectedRijschool.naam))
@@ -233,7 +323,7 @@ public class RijschoolApp : MonoBehaviour
                 await UpdateRijschool(selectedRijschool);
             }
             
-            LoadLeerlingen();
+            Rooster.instance.UpdateOverzichtLeerlingen();
         }
         else
         {
@@ -259,6 +349,7 @@ public class RijschoolApp : MonoBehaviour
     {
         if (selectedRijschool != null && selectedLeerling != null)
         {
+            UnityAnalyticsManager.Instance.TrackStudentRemoved(selectedRijschool.naam, selectedLeerling.naam);
             selectedRijschool.leerlingen.Remove(selectedLeerling);
             selectedLeerling = null;
             Debug.Log("Leerling verwijderd");
@@ -269,10 +360,17 @@ public class RijschoolApp : MonoBehaviour
         }
     }
 
+    public void KlikMijnRijschoolActive()
+    {
+        klikMijnRijschool.SetActive(PlayerPrefs.HasKey("MijnRijschool"));
+    }
+
     public async void MaakRijschool()
     {
         string newName = maakRijschoolInputfields[0].text;
-        string password = maakRijschoolInputfields[2].text;
+        string description = maakRijschoolInputfields[1].text;
+        string woonplaats = maakRijschoolInputfields[2].text;
+        string password = maakRijschoolInputfields[3].text;
 
         TextMeshProUGUI warningtext = warningMessage.GetComponentInChildren<TextMeshProUGUI>();
 
@@ -281,6 +379,7 @@ public class RijschoolApp : MonoBehaviour
         {
             warningMessage.SetActive(true); 
             warningtext.text = "Vul alle verplichte velden in";
+            nameExistsWarning.SetActive(false);
             return;
         }
         
@@ -290,15 +389,17 @@ public class RijschoolApp : MonoBehaviour
         if (nameExists)
         {
             warningMessage.SetActive(true);
-            warningtext.text = "Rijschool bestaat al. Kies een andere naam";
+            //nameExistsWarning.SetActive(true);
             return;
         }
         
         warningMessage.SetActive(false);
+        nameExistsWarning.SetActive(false);
         selectedRijschool = new Rijschool();
         selectedRijschool.leerlingen = new List<Leerling>();
         selectedRijschool.naam = newName;
-        selectedRijschool.beschrijving = maakRijschoolInputfields[1].text;
+        selectedRijschool.beschrijving = description;
+        selectedRijschool.woonPlaats = woonplaats;
         selectedRijschool.wachtwoord = password;
 
         string jsonData = JsonUtility.ToJson(selectedRijschool);
@@ -316,10 +417,22 @@ public class RijschoolApp : MonoBehaviour
 
                 if (www.result == UnityWebRequest.Result.Success)
                 {
+                    UnityAnalyticsManager.Instance.TrackDrivingSchoolCreation(newName);
                     Debug.Log("Rijschool succesvol aangemaakt!");
                     // Save the rijschool name in PlayerPrefs
                     PlayerPrefs.SetString("MijnRijschool", newName);
                     PlayerPrefs.Save();
+
+                    // Set the confirmation button to non-interactable
+                    if (maakrijschoolbevestigen != null)
+                    {
+                        UnityEngine.UI.Button button = maakrijschoolbevestigen.GetComponent<UnityEngine.UI.Button>();
+                        if (button != null)
+                        {
+                            klikMijnRijschoolButton.SetActive(PlayerPrefs.HasKey("MijnRijschool"));
+                            button.interactable = false;
+                        }
+                    }
 
                     // Reload rijscholen to get the newly created one
                     await LoadRijscholen();
@@ -335,13 +448,14 @@ public class RijschoolApp : MonoBehaviour
                     }
 
                     // Now you can proceed with adding students
-                    LoadLeerlingen();
+                    Rooster.instance.UpdateOverzichtLeerlingen();
                     LoadMijnRijschool();
                     maakRijschoolGameobject.SetActive(false);
                     mijnRijschoolButton.SetActive(true);
                 }
                 else
                 {
+                    UnityAnalyticsManager.Instance.TrackAPIFailure("create_driving_school", www.error);
                     Debug.LogError($"Error: {www.error}");
                 }
             }
@@ -374,13 +488,26 @@ public class RijschoolApp : MonoBehaviour
         if (string.IsNullOrEmpty(zoekTerm))
         {
             filteredRijscholen = alleRijscholen;
+            // Show indicator if user has their own driving school and it's in the list
+            if (PlayerPrefs.HasKey("MijnRijschool") && eigenRijschoolIndicator != null)
+            {
+                string eigenRijschoolNaam = PlayerPrefs.GetString("MijnRijschool");
+                eigenRijschoolIndicator.SetActive(filteredRijscholen.Any(r => 
+                    r.naam.Equals(eigenRijschoolNaam, System.StringComparison.OrdinalIgnoreCase)));
+            }
         }
         else
         {
-            print((filteredRijscholen == null) + " " + (alleRijscholen == null));
+            // Filter the list based on search term
             filteredRijscholen = alleRijscholen
                 .Where(r => r.naam.ToLower().Contains(zoekTerm.ToLower()))
                 .ToList();
+
+            // Hide indicator since we're showing filtered results
+            if (eigenRijschoolIndicator != null)
+            {
+                eigenRijschoolIndicator.SetActive(false);
+            }
         }
         
         // Reset all UI elements
@@ -394,45 +521,64 @@ public class RijschoolApp : MonoBehaviour
 
     public void SelectRijschool(int index)
     {
-        selectedRijschool = alleRijscholen[index];
+        // Use the filtered list instead of alleRijscholen
+        if (index >= 0 && index < filteredRijscholen.Count)
+        {
+            selectedRijschool = filteredRijscholen[index];
+            UpdateEditRijschoolFields();
+        }
     }
 
     public void CheckPassword(string password)
     {
         if (selectedRijschool != null && password == selectedRijschool.wachtwoord)
         {
+            UnityAnalyticsManager.Instance.TrackInstructorLogin(selectedRijschool.naam);
             correctPasswordButton.SetActive(true);
             wrongPasswordButton.SetActive(false);
         }
         else
         {
+            UnityAnalyticsManager.Instance.TrackLoginFailure("instructor", "invalid_password");
             correctPasswordButton.SetActive(false);
             wrongPasswordButton.SetActive(true);
         }
     }
 
-    public void LoadLeerlingen()
-    {
-        foreach(GameObject obj in leerlingenPool)
-        {
-            obj.SetActive(false);
-        }
-        foreach(Leerling leerling in selectedRijschool.leerlingen)
-        {
-            int index = selectedRijschool.leerlingen.IndexOf(leerling);
-            GameObject UIelement = leerlingenPool[index];
-            UIelement.SetActive(true);
+    //public void LoadLeerlingen()
+    //{
+    //    // First deactivate all objects in the pool
+    //    foreach(GameObject obj in leerlingenPool)
+    //    {
+    //        obj.SetActive(false);
+    //    }
 
-            UnityEngine.UI.Image image = UIelement.GetComponent<UnityEngine.UI.Image>();
-            image.color = leerlingKleuren[leerling.colorIndex];
+    //    // Check if we have any students to display
+    //    if (selectedRijschool?.leerlingen == null) return;
 
-            TextMeshProUGUI naamtext = UIelement.GetComponentsInChildren<TextMeshProUGUI>()[0];
-            naamtext.text = leerling.naam;
+    //    // Only process students up to the pool size
+    //    for (int i = 0; i < selectedRijschool.leerlingen.Count && i < leerlingenPool.Count; i++)
+    //    {
+    //        Leerling leerling = selectedRijschool.leerlingen[i];
+    //        GameObject UIelement = leerlingenPool[i];
+    //        UIelement.SetActive(true);
 
-            TextMeshProUGUI frequentietext = UIelement.GetComponentsInChildren<TextMeshProUGUI>()[1];
-            frequentietext.text = leerling.frequentie.ToString();
-        }
-    }
+    //        UnityEngine.UI.Image image = UIelement.GetComponent<UnityEngine.UI.Image>();
+    //        image.color = leerlingKleuren[leerling.colorIndex];
+
+    //        TextMeshProUGUI naamtext = UIelement.GetComponentsInChildren<TextMeshProUGUI>()[0];
+    //        naamtext.text = leerling.naam;
+
+    //        TextMeshProUGUI frequentietext = UIelement.GetComponentsInChildren<TextMeshProUGUI>()[1];
+    //        frequentietext.text = leerling.frequentie.ToString();
+    //    }
+
+    //    // Optionally log a warning if we have more students than UI elements
+    //    if (selectedRijschool.leerlingen.Count > leerlingenPool.Count)
+    //    {
+    //        Debug.LogWarning($"Not enough UI elements to display all students. Have {selectedRijschool.leerlingen.Count} students but only {leerlingenPool.Count} UI elements.");
+    //    }
+    //}
 
     public async Task UpdateRijschool(Rijschool rijschool)
     {
@@ -482,10 +628,20 @@ public class RijschoolApp : MonoBehaviour
 
     public void SelectLeerling(int leerlingIndex)
     {
+        if(leerlingIndex < 0)
+        {
+            ingelogdAlsText.text = "";return;
+        }
         if (selectedRijschool != null && leerlingIndex < selectedRijschool.leerlingen.Count)
         {
             selectedLeerling = selectedRijschool.leerlingen[leerlingIndex];
             Debug.Log($"Selected leerling: {selectedLeerling.naam}");
+            
+            // Update the ingelogd als text
+            if (ingelogdAlsText != null)
+            {
+                ingelogdAlsText.text = "Ingelogd als: " + selectedLeerling.naam;
+            }
         }
     }
 
@@ -502,7 +658,7 @@ public class RijschoolApp : MonoBehaviour
             Mathf.Clamp(selectedRijschool.leerlingen[leerlingIndex].frequentie - 1, 0, 10);
 
         // Update UI
-        LoadLeerlingen();
+        Rooster.instance.UpdateOverzichtLeerlingen();
 
         // Save changes to server if rijschool exists in database
         if (alleRijscholen.Any(r => r.naam == selectedRijschool.naam))
@@ -524,7 +680,7 @@ public class RijschoolApp : MonoBehaviour
             Mathf.Clamp(selectedRijschool.leerlingen[leerlingIndex].frequentie + 1, 0, 10);
 
         // Update UI
-        LoadLeerlingen();
+        Rooster.instance.UpdateOverzichtLeerlingen();
 
         // Save changes to server if rijschool exists in database
         if (alleRijscholen.Any(r => r.naam == selectedRijschool.naam))
@@ -533,23 +689,169 @@ public class RijschoolApp : MonoBehaviour
         }
     }
 
-    public async void RemoveLeerling(int leerlingIndex)
+    public void RemoveLeerling(int leerling)
     {
-        if (selectedRijschool?.leerlingen == null || leerlingIndex >= selectedRijschool.leerlingen.Count)
+        // Store the student index for later confirmation
+        pendingLeerlingRemoval = leerling;
+        // You can trigger your confirmation UI here
+    }
+
+    public async void ConfirmRemoveLeerling()
+    {
+        if (pendingLeerlingRemoval < 0)
         {
-            Debug.LogWarning("Invalid rijschool or leerling index");
-            return;
+            print("kan niet"); return;
         }
 
-        // Remove the leerling from the list
-        selectedRijschool.leerlingen.RemoveAt(leerlingIndex);
-
-        // Update UI
-        LoadLeerlingen();
-
-        // Save changes to server if rijschool exists in database
-        if (alleRijscholen.Any(r => r.naam == selectedRijschool.naam))
+        if (selectedRijschool != null && selectedRijschool.leerlingen != null && 
+            pendingLeerlingRemoval < selectedRijschool.leerlingen.Count)
         {
+            string leerlingNaam = selectedRijschool.leerlingen[pendingLeerlingRemoval].naam;
+            UnityAnalyticsManager.Instance.TrackStudentRemoved(selectedRijschool.naam, leerlingNaam);
+
+            // Remove all lessons associated with this student
+            if (selectedRijschool.rooster?.weken != null)
+            {
+                foreach (Week week in selectedRijschool.rooster.weken)
+                {
+                    if (week.lessen != null)
+                    {
+                        // Remove lessons where this student is the main student
+                        week.lessen.RemoveAll(les => les.leerlingNaam == leerlingNaam);
+
+                        // Remove this student from any group lessons they're part of
+                        foreach (Les les in week.lessen)
+                        {
+                            if (les.gereserveerdDoorLeerling != null)
+                            {
+                                les.gereserveerdDoorLeerling.RemoveAll(l => l.naam == leerlingNaam);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Remove the student from the driving school
+            selectedRijschool.leerlingen.RemoveAt(pendingLeerlingRemoval);
+            selectedLeerling = null;
+            Debug.Log($"Leerling {leerlingNaam} en alle bijbehorende lessen verwijderd");
+
+            // Save changes to server
+            await UpdateRijschool(selectedRijschool);
+            Rooster.instance.UpdateOverzichtLeerlingen();
+            Rooster.instance.LoadLessen(); // Refresh the schedule display
+        }
+        else
+        {
+            Debug.LogWarning("Geen rijschool of leerling geselecteerd!");
+        }
+
+        // Reset the pending removal
+        pendingLeerlingRemoval = -1;
+    }
+
+    public void CancelRemoveLeerling()
+    {
+        // Reset the pending removal without taking action
+        pendingLeerlingRemoval = -1;
+    }
+
+    private void UpdateEditRijschoolFields()
+    {
+        if (selectedRijschool != null && editRijschoolInputFields != null && editRijschoolInputFields.Count >= 4)
+        {
+            editRijschoolInputFields[0].text = selectedRijschool.naam;
+            editRijschoolInputFields[1].text = selectedRijschool.beschrijving;
+            editRijschoolInputFields[2].text = selectedRijschool.woonPlaats;
+            editRijschoolInputFields[3].text = selectedRijschool.wachtwoord;
+        }
+    }
+
+    public async void OnEditRijschoolName(string newName)
+    {
+        if (selectedRijschool != null && !string.IsNullOrEmpty(newName))
+        {
+            // Check if a rijschool with this name already exists (case insensitive)
+            bool nameExists = alleRijscholen.Any(r => 
+                r != selectedRijschool && 
+                r.naam.Equals(newName, System.StringComparison.OrdinalIgnoreCase));
+
+            if (nameExists)
+            {
+                nameExistsWarning.SetActive(true);
+                UpdateEditRijschoolFields(); // Reset to original name
+                return;
+            }
+
+            nameExistsWarning.SetActive(false);
+            string oldName = selectedRijschool.naam;
+            selectedRijschool.naam = newName;
+            
+            // Update PlayerPrefs if this is the user's driving school
+            if (PlayerPrefs.HasKey("MijnRijschool") && 
+                PlayerPrefs.GetString("MijnRijschool").Equals(oldName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                PlayerPrefs.SetString("MijnRijschool", newName);
+                PlayerPrefs.Save();
+            }
+
+            using (UnityWebRequest www = UnityWebRequest.Put($"{apiUrl}/{oldName}", JsonUtility.ToJson(selectedRijschool)))
+            {
+                www.SetRequestHeader("Content-Type", "application/json");
+                try
+                {
+                    await www.SendWebRequest();
+                    if (www.result == UnityWebRequest.Result.Success)
+                    {
+                        await LoadRijscholen();
+                    }
+                    else
+                    {
+                        Debug.LogError($"Error updating rijschool: {www.error}");
+                        Debug.LogError($"Response: {www.downloadHandler.text}");
+                        
+                        // Revert changes if update failed
+                        selectedRijschool.naam = oldName;
+                        if (PlayerPrefs.HasKey("MijnRijschool"))
+                        {
+                            PlayerPrefs.SetString("MijnRijschool", oldName);
+                            PlayerPrefs.Save();
+                        }
+                        UpdateEditRijschoolFields();
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"Exception during rijschool update: {e.Message}");
+                }
+            }
+        }
+    }
+
+    public async void OnEditRijschoolDescription(string newDescription)
+    {
+        if (selectedRijschool != null)
+        {
+            selectedRijschool.beschrijving = newDescription;
+            await UpdateRijschool(selectedRijschool);
+            await LoadRijscholen();
+        }
+    }
+
+    public async void OnEditRijschoolPassword(string newPassword)
+    {
+        if (selectedRijschool != null && !string.IsNullOrEmpty(newPassword))
+        {
+            selectedRijschool.wachtwoord = newPassword;
+            await UpdateRijschool(selectedRijschool);
+        }
+    }
+
+    public async void OnEditRijschoolWoonplaats(string newWoonplaats)
+    {
+        if (selectedRijschool != null)
+        {
+            selectedRijschool.woonPlaats = newWoonplaats;
             await UpdateRijschool(selectedRijschool);
         }
     }
@@ -569,6 +871,8 @@ public class Leerling
     public int colorIndex;
     public int minutesPerLes = 60;
     public List<Beschikbaarheid> beschikbaarheid;
+    public string woonPlaats;
+    public string wachtwoord;
 
     public Leerling()
     {
@@ -678,6 +982,7 @@ public class Rijschool
     public string naam;
     public string beschrijving;
     public string wachtwoord;
+    public string woonPlaats;
     public List<Leerling> leerlingen;
     public LesRooster rooster;
     public List<Beschikbaarheid> instructeurBeschikbaarheid;
