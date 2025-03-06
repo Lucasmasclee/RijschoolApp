@@ -372,4 +372,17 @@ public class UnityAnalyticsManager : MonoBehaviour
     }
 
     #endregion
+
+    #region Feedback
+    public void TrackFeedback(string feedback)
+    {
+        if (!_isInitialized) return;
+
+        CustomEvent myEvent = new CustomEvent("feedback");
+        myEvent.Add("feedback_1", feedback);
+        
+        AnalyticsService.Instance.RecordEvent(myEvent);
+        AnalyticsService.Instance.Flush();
+    }
+    #endregion
 }

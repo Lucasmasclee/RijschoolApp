@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Linq;
 using System;
+using UnityEngine.UI;
 
 public class RijschoolApp : MonoBehaviour
 {
@@ -50,6 +51,7 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private TMP_InputField voegLeerlingToeNaam;
     [SerializeField] private TextMeshProUGUI voegLeerlingToeFrequentie;
     [SerializeField] private TMP_InputField voegLeerlingToeMinutesPerLes;
+    [SerializeField] private TMP_InputField voegLeerlingToeWoonplaats;
     [SerializeField] private Transform rijscholenUIParent;
     [SerializeField] private List<GameObject> leerlingenPool;
     [SerializeField] private GameObject nogGeenRijschoolWaarschuwing;
@@ -69,6 +71,11 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private GameObject klikMijnRijschoolButton; // do not delete
     [SerializeField] private GameObject leerlingNaamWaarschuwing;
     [SerializeField] private TextMeshProUGUI weekOffsetText;
+    [SerializeField] private GameObject drivingSchoolPassword;
+    [SerializeField] private GameObject studentPassword;
+    [SerializeField] private List<GameObject> woonplaatsSettings; // Add this field
+    [SerializeField] private TMP_InputField startWoonplaatsen;
+    [SerializeField] private TMP_InputField eindWoonplaatsen;
     private int pendingLeerlingRemoval = -1;  // Store the index of student pending removal
 
     private List<Rijschool> alleRijscholen;
@@ -113,6 +120,37 @@ public class RijschoolApp : MonoBehaviour
         {
             UpdateEditRijschoolFields();
         }
+
+        // Initialize woonplaats settings if they don't exist
+        if (!PlayerPrefs.HasKey("StartInWoonplaats"))
+        {
+            PlayerPrefs.SetInt("StartInWoonplaats", 0);
+        }
+        if (!PlayerPrefs.HasKey("EindInWoonplaats"))
+        {
+            PlayerPrefs.SetInt("EindInWoonplaats", 0);
+        }
+        if (!PlayerPrefs.HasKey("StartWoonplaatsen"))
+        {
+            PlayerPrefs.SetString("StartWoonplaatsen", "");
+        }
+        if (!PlayerPrefs.HasKey("EindWoonplaatsen"))
+        {
+            PlayerPrefs.SetString("EindWoonplaatsen", "");
+        }
+
+        // Set input field values from PlayerPrefs
+        if (startWoonplaatsen != null)
+        {
+            startWoonplaatsen.text = PlayerPrefs.GetString("StartWoonplaatsen");
+        }
+        if (eindWoonplaatsen != null)
+        {
+            eindWoonplaatsen.text = PlayerPrefs.GetString("EindWoonplaatsen");
+        }
+
+        // Update UI based on settings
+        UpdateWoonplaatsSettingsUI();
     }
 
     public void SetSchermActive(bool start, bool leraar, bool leerling, bool rooster)
@@ -301,7 +339,7 @@ public class RijschoolApp : MonoBehaviour
                 colorIndex = GetNextAvailableColorIndex(),
                 minutesPerLes = minutesPerLes,
                 wachtwoord = uniquePassword,
-                woonPlaats = "" // Initialize empty, can be set later if needed
+                woonPlaats = voegLeerlingToeWoonplaats.text // Set the woonplaats from the input field
             };
             
             if (selectedRijschool.leerlingen == null)
@@ -529,56 +567,64 @@ public class RijschoolApp : MonoBehaviour
         }
     }
 
-    public void CheckPassword(string password)
+    public void CheckBothPasswords()
     {
-        if (selectedRijschool != null && password == selectedRijschool.wachtwoord)
+        if (selectedRijschool == null) return;
+
+        // Get passwords from input fields
+        string schoolPass = drivingSchoolPassword.GetComponent<TMP_InputField>().text;
+        string studentPass = studentPassword.GetComponent<TMP_InputField>().text;
+
+        // Only proceed with password check if both fields are filled in
+        if (string.IsNullOrEmpty(schoolPass) || string.IsNullOrEmpty(studentPass))
         {
-            UnityAnalyticsManager.Instance.TrackInstructorLogin(selectedRijschool.naam);
-            correctPasswordButton.SetActive(true);
+            correctPasswordButton.SetActive(false);
             wrongPasswordButton.SetActive(false);
+            return;
+        }
+
+        // Check if driving school password matches (case insensitive)
+        if (schoolPass.Equals(selectedRijschool.wachtwoord, StringComparison.OrdinalIgnoreCase) && 
+            selectedRijschool.leerlingen != null)
+        {
+            // Find student with matching password (case insensitive)
+            var matchingStudent = selectedRijschool.leerlingen
+                .FirstOrDefault(l => l.wachtwoord.Equals(studentPass, StringComparison.OrdinalIgnoreCase));
+
+            if (matchingStudent != null)
+            {
+                // Both passwords are correct
+                correctPasswordButton.SetActive(true);
+                wrongPasswordButton.SetActive(false);
+
+                // Set the selected student
+                selectedLeerling = matchingStudent;
+                
+                // Update the logged-in text
+                if (ingelogdAlsText != null)
+                {
+                    ingelogdAlsText.text = "Ingelogd als: " + matchingStudent.naam;
+                }
+
+                // Load only this student's information
+                Rooster.instance.LoadKiesLeerlingButtons(matchingStudent);
+            }
+            else
+            {
+                // School password correct, but student password wrong
+                UnityAnalyticsManager.Instance.TrackLoginFailure("student", "invalid_password");
+                correctPasswordButton.SetActive(false);
+                wrongPasswordButton.SetActive(true);
+            }
         }
         else
         {
-            UnityAnalyticsManager.Instance.TrackLoginFailure("instructor", "invalid_password");
+            // School password incorrect
+            UnityAnalyticsManager.Instance.TrackLoginFailure("school", "invalid_password");
             correctPasswordButton.SetActive(false);
             wrongPasswordButton.SetActive(true);
         }
     }
-
-    //public void LoadLeerlingen()
-    //{
-    //    // First deactivate all objects in the pool
-    //    foreach(GameObject obj in leerlingenPool)
-    //    {
-    //        obj.SetActive(false);
-    //    }
-
-    //    // Check if we have any students to display
-    //    if (selectedRijschool?.leerlingen == null) return;
-
-    //    // Only process students up to the pool size
-    //    for (int i = 0; i < selectedRijschool.leerlingen.Count && i < leerlingenPool.Count; i++)
-    //    {
-    //        Leerling leerling = selectedRijschool.leerlingen[i];
-    //        GameObject UIelement = leerlingenPool[i];
-    //        UIelement.SetActive(true);
-
-    //        UnityEngine.UI.Image image = UIelement.GetComponent<UnityEngine.UI.Image>();
-    //        image.color = leerlingKleuren[leerling.colorIndex];
-
-    //        TextMeshProUGUI naamtext = UIelement.GetComponentsInChildren<TextMeshProUGUI>()[0];
-    //        naamtext.text = leerling.naam;
-
-    //        TextMeshProUGUI frequentietext = UIelement.GetComponentsInChildren<TextMeshProUGUI>()[1];
-    //        frequentietext.text = leerling.frequentie.ToString();
-    //    }
-
-    //    // Optionally log a warning if we have more students than UI elements
-    //    if (selectedRijschool.leerlingen.Count > leerlingenPool.Count)
-    //    {
-    //        Debug.LogWarning($"Not enough UI elements to display all students. Have {selectedRijschool.leerlingen.Count} students but only {leerlingenPool.Count} UI elements.");
-    //    }
-    //}
 
     public async Task UpdateRijschool(Rijschool rijschool)
     {
@@ -854,6 +900,57 @@ public class RijschoolApp : MonoBehaviour
             selectedRijschool.woonPlaats = newWoonplaats;
             await UpdateRijschool(selectedRijschool);
         }
+    }
+
+    private void UpdateWoonplaatsSettingsUI()
+    {
+        if (woonplaatsSettings == null || woonplaatsSettings.Count < 4) return;
+
+        // First element: StartInWoonplaats = 0
+        woonplaatsSettings[0].SetActive(PlayerPrefs.GetInt("StartInWoonplaats") == 0);
+        
+        // Second element: StartInWoonplaats = 1
+        woonplaatsSettings[1].SetActive(PlayerPrefs.GetInt("StartInWoonplaats") == 1);
+        
+        // Third element: EindInWoonplaats = 0
+        woonplaatsSettings[2].SetActive(PlayerPrefs.GetInt("EindInWoonplaats") == 0);
+        
+        // Fourth element: EindInWoonplaats = 1
+        woonplaatsSettings[3].SetActive(PlayerPrefs.GetInt("EindInWoonplaats") == 1);
+    }
+
+    public void SetWoonplaatsSetting(int setting)
+    {
+        switch (setting)
+        {
+            case 0:
+                PlayerPrefs.SetInt("StartInWoonplaats", 1);
+                break;
+            case 1:
+                PlayerPrefs.SetInt("StartInWoonplaats", 0);
+                break;
+            case 2:
+                PlayerPrefs.SetInt("EindInWoonplaats", 1);
+                break;
+            case 3:
+                PlayerPrefs.SetInt("EindInWoonplaats", 0);
+                break;
+        }
+        print(PlayerPrefs.GetInt("StartInWoonplaats") + " , " + PlayerPrefs.GetInt("EindInWoonplaats"));
+        PlayerPrefs.Save();
+        UpdateWoonplaatsSettingsUI();
+    }
+
+    public void SetStartWoonplaatsen(string woonplaatsen)
+    {
+        PlayerPrefs.SetString("StartWoonplaatsen", woonplaatsen);
+        PlayerPrefs.Save();
+    }
+
+    public void SetEindWoonplaatsen(string woonplaatsen)
+    {
+        PlayerPrefs.SetString("EindWoonplaatsen", woonplaatsen);
+        PlayerPrefs.Save();
     }
 }
 

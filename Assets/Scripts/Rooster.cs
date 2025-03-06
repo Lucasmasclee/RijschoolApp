@@ -60,6 +60,12 @@ public class Rooster : MonoBehaviour
 
     [SerializeField] private List<GameObject> nextLeerlingRoosterButtons;
 
+    [SerializeField]
+    private List<TMP_InputField> leerlingoverzichtWoonplaats;
+
+    [SerializeField]
+    private List<TMP_InputField> leerlingoverzichtnaam;
+
     private const float HOUR_HEIGHT = 100f;
     private const float START_HOUR = 6f;
     private const float LESSON_WIDTH = 130f;
@@ -75,6 +81,11 @@ public class Rooster : MonoBehaviour
     [SerializeField] private TextMeshProUGUI weekOffsetText;
 
     [SerializeField] private TextMeshProUGUI ingelogdAlsText;
+
+    // Add this field near the top with other SerializeFields
+    [SerializeField] private GameObject roosterStatistics;
+
+    [SerializeField] private GameObject leerlingNaamWaarschuwing;
 
     private void Start()
     {
@@ -162,21 +173,24 @@ public class Rooster : MonoBehaviour
         RefreshDisplay();
     }
 
-    public void LoadKiesLeerlingButtons()
+    public void LoadKiesLeerlingButtons(Leerling student)
     {
         foreach (GameObject obj in kiesleerlingButtons)
         {
             obj.SetActive(false);
         }
-        List<Leerling> listleerling = RijschoolApp.instance.selectedRijschool.leerlingen;
-        List<Color> colors = RijschoolApp.instance.leerlingKleuren;
-        for (int i = 0; i < listleerling.Count; i++)
+
+        // Only show the first button with the logged-in student's information
+        if (kiesleerlingButtons.Count > 0)
         {
-            Image image = kiesleerlingButtons[i].GetComponent<Image>();
-            image.color = colors[listleerling[i].colorIndex];
-            TextMeshProUGUI naamtext = kiesleerlingButtons[i].GetComponentInChildren<TextMeshProUGUI>();
-            naamtext.text = listleerling[i].naam;
-            kiesleerlingButtons[i].SetActive(true);
+            GameObject button = kiesleerlingButtons[0];
+            button.SetActive(true);
+
+            Image image = button.GetComponent<Image>();
+            image.color = RijschoolApp.instance.leerlingKleuren[student.colorIndex];
+
+            TextMeshProUGUI naamtext = button.GetComponentInChildren<TextMeshProUGUI>();
+            naamtext.text = student.naam;
         }
     }
 
@@ -257,7 +271,7 @@ public class Rooster : MonoBehaviour
         // Update the date texts for each day
         if (dagDatumTexts != null && dagDatumTexts.Count == 7)
         {
-            dagDatumTexts[0].text = monday.AddDays(0).ToString("Ma\ndd MMM").TrimEnd('.'); // Format: "24 Jan"
+            dagDatumTexts[0].text = "Ma\n" + monday.AddDays(0).ToString("dd MMM").TrimEnd('.'); // Format: "24 Jan"
             dagDatumTexts[1].text = monday.AddDays(1).ToString("Di\ndd MMM").TrimEnd('.'); // Format: "24 Jan"
             dagDatumTexts[2].text = monday.AddDays(2).ToString("Woe\ndd MMM").TrimEnd('.'); // Format: "24 Jan"
             dagDatumTexts[3].text = monday.AddDays(3).ToString("Do\ndd MMM").TrimEnd('.'); // Format: "24 Jan"
@@ -977,11 +991,17 @@ public class Rooster : MonoBehaviour
             GameObject leerlingObj = leerlingoverzicht[i];
             leerlingObj.SetActive(true);
 
-            TextMeshProUGUI naamtext = leerlingObj.GetComponentInChildren<TextMeshProUGUI>();
-            naamtext.text = listleerling[i].naam;
+            //TextMeshProUGUI naamtext = leerlingObj.transform.GetChild(1).GetComponent<TextMeshProUGUI>();
+            //naamtext.text = listleerling[i].naam;
 
-            TextMeshProUGUI frequentietext = leerlingObj.transform.GetChild(2).GetComponent<TextMeshProUGUI>();
+            TextMeshProUGUI frequentietext = leerlingObj.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
             frequentietext.text = listleerling[i].frequentie.ToString();
+
+            // Update woonplaats input field
+            if (i < leerlingoverzichtWoonplaats.Count)
+            {
+                leerlingoverzichtWoonplaats[i].text = listleerling[i].woonPlaats ?? "";
+            }
 
             //Image image
             Image image = leerlingoverzicht[i].GetComponent<Image>();
@@ -989,8 +1009,18 @@ public class Rooster : MonoBehaviour
 
             // Get child GameObjects
             Transform leerlingTransform = leerlingObj.transform;
-            GameObject plus = leerlingTransform.GetChild(1).gameObject;
-            GameObject min = leerlingTransform.GetChild(2).gameObject;
+            //GameObject plus = leerlingTransform.GetChild(1).gameObject;
+            //GameObject min = leerlingTransform.GetChild(2).gameObject;
+
+            // Update password text
+            TextMeshProUGUI passwordText = leerlingTransform.GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>();
+            passwordText.text = "ww: " + listleerling[i].wachtwoord ?? "";
+
+            // Update name input field
+            if (i < leerlingoverzichtnaam.Count)
+            {
+                leerlingoverzichtnaam[i].text = listleerling[i].naam;
+            }
         }
     }
 
@@ -1130,14 +1160,17 @@ public class Rooster : MonoBehaviour
             }
         }
 
+        // Get preferences for woonplaats scheduling
+        bool startInWoonplaats = PlayerPrefs.GetInt("StartInWoonplaats") == 1;
+        bool endInWoonplaats = PlayerPrefs.GetInt("EindInWoonplaats") == 1;
+
         // Process each instructor slot
         foreach (var instructorSlot in instructorSlots)
         {
-            //Debug.Log($"\nProcessing instructor slot: {instructorSlot.Day} {instructorSlot.StartTime}-{instructorSlot.EndTime}");
-            
             var slotStartMinutes = TimeStringToMinutes(instructorSlot.StartTime);
             var slotEndMinutes = TimeStringToMinutes(instructorSlot.EndTime);
             var currentTimeInSlot = slotStartMinutes;
+            bool isFirstLessonOfDay = true;
 
             while (currentTimeInSlot < slotEndMinutes)
             {
@@ -1194,11 +1227,81 @@ public class Rooster : MonoBehaviour
                     })
                     .ToList();
 
+                // Apply woonplaats preferences for first and last lessons
                 if (eligibleStudents.Any())
                 {
-                    var selectedStudent = eligibleStudents.First().Key;
+                    var orderedStudents = eligibleStudents.ToList();
+
+                    // For first lesson of the day
+                    if (isFirstLessonOfDay && startInWoonplaats)
+                    {
+                        // Check if we're within first 30 minutes of instructor's availability
+                        if (currentTimeInSlot <= slotStartMinutes + 30)
+                        {
+                            // Get the list of preferred start locations from PlayerPrefs
+                            string startLocations = PlayerPrefs.GetString("StartWoonplaatsen", "");
+                            string[] preferredStartLocations = !string.IsNullOrEmpty(startLocations) 
+                                ? startLocations.Split(',').Select(s => s.Trim()).ToArray() 
+                                : new string[0];
+
+                            // Prioritize students from preferred start locations
+                            orderedStudents = orderedStudents
+                                .OrderByDescending(s => {
+                                    var student = s.Key;
+                                    var studentWoonplaats = rijschool.leerlingen
+                                        .First(l => l.naam == student).woonPlaats;
+                                    
+                                    // Check if student's woonplaats is in the preferred locations list
+                                    var matchesPreferredLocation = !string.IsNullOrEmpty(studentWoonplaats) && 
+                                        preferredStartLocations.Any(loc => 
+                                            studentWoonplaats.Equals(loc, StringComparison.OrdinalIgnoreCase));
+                                    
+                                    var remaining = studentRequirements[student].frequency - assignedLessonsPerStudent[student];
+                                    return (matchesPreferredLocation ? 1000 : 0) + remaining;
+                                })
+                                .ToList();
+                        }
+                    }
+                    // For last possible lesson of the day
+                    else if (endInWoonplaats)
+                    {
+                        // Check if this could be the last lesson (no room for another full lesson after)
+                        var nextStudentMinDuration = orderedStudents
+                            .Min(s => studentRequirements[s.Key].minutes);
+                        bool isLastPossibleLesson = currentTimeInSlot + nextStudentMinDuration >= slotEndMinutes - 40;
+
+                        if (isLastPossibleLesson)
+                        {
+                            // Get the list of preferred end locations from PlayerPrefs
+                            string endLocations = PlayerPrefs.GetString("EindWoonplaatsen", "");
+                            string[] preferredEndLocations = !string.IsNullOrEmpty(endLocations) 
+                                ? endLocations.Split(',').Select(s => s.Trim()).ToArray() 
+                                : new string[0];
+
+                            // Prioritize students from preferred end locations
+                            orderedStudents = orderedStudents
+                                .OrderByDescending(s => {
+                                    var student = s.Key;
+                                    var studentWoonplaats = rijschool.leerlingen
+                                        .First(l => l.naam == student).woonPlaats;
+                                    
+                                    // Check if student's woonplaats is in the preferred locations list
+                                    var matchesPreferredLocation = !string.IsNullOrEmpty(studentWoonplaats) && 
+                                        preferredEndLocations.Any(loc => 
+                                            studentWoonplaats.Equals(loc, StringComparison.OrdinalIgnoreCase));
+                                    
+                                    var remaining = studentRequirements[student].frequency - assignedLessonsPerStudent[student];
+                                    return (matchesPreferredLocation ? 1000 : 0) + remaining;
+                                })
+                                .ToList();
+                        }
+                    }
+
+                    // Select the first eligible student after ordering
+                    var selectedStudent = orderedStudents.First().Key;
                     var lessonDuration = studentRequirements[selectedStudent].minutes;
 
+                    // Create and add the lesson
                     var lesson = new Les
                     {
                         begintijd = MinutesToTimeString(currentTimeInSlot),
@@ -1213,15 +1316,14 @@ public class Rooster : MonoBehaviour
                     assignedLessonsPerStudent[selectedStudent]++;
                     lessonsPerStudentPerDay[selectedStudent].Add(instructorSlot.Day);
                     
-                    //Debug.Log($"Created lesson for {selectedStudent}: {lesson.begintijd}-{lesson.eindtijd} on {instructorSlot.Day}");
-                    
                     currentTimeInSlot += lessonDuration;
+                    isFirstLessonOfDay = false;
                 }
                 else
                 {
                     // If no eligible students found, move time forward
                     currentTimeInSlot += 15; // Move in 15-minute increments
-                    //Debug.Log($"No eligible students found for {instructorSlot.Day} at {MinutesToTimeString(currentTimeInSlot)}");
+                    isFirstLessonOfDay = false;
                 }
             }
         }
@@ -1237,6 +1339,85 @@ public class Rooster : MonoBehaviour
         await RijschoolApp.instance.UpdateRijschool(rijschool);
         LoadLessen();
         UnityAnalyticsManager.Instance.TrackScheduleGeneration(minimizeChanges, targetWeek?.lessen?.Count ?? 0);
+
+        // After all lessons are scheduled, calculate and display statistics
+        if (roosterStatistics != null)
+        {
+            // Get the text components
+            var lessonsText = roosterStatistics.transform.GetChild(0).GetComponent<TextMeshProUGUI>();
+            var fillRateText = roosterStatistics.transform.GetChild(1).GetComponent<TextMeshProUGUI>();
+            var unscheduledStudentsText = roosterStatistics.transform.GetChild(2).GetComponent<TextMeshProUGUI>();
+
+            // 1. Total lessons generated
+            int totalLessons = targetWeek?.lessen?.Count ?? 0;
+            lessonsText.text = $"Aantal lessen: {totalLessons}";
+
+            // 2. Calculate instructor availability fill rate
+            float totalAvailableMinutes = 0;
+            float scheduledMinutes = 0;
+
+            // Calculate total available minutes
+            var instructorAvailability = rijschool.instructeurBeschikbaarheid
+                .Where(b => b.weekNummer == weekNum && b.jaar == year);
+
+            foreach (var dayAvail in instructorAvailability)
+            {
+                foreach (var slot in dayAvail.tijdslots)
+                {
+                    int startMinutes = TimeStringToMinutes(slot.startTijd);
+                    int endMinutes = TimeStringToMinutes(slot.eindTijd);
+                    totalAvailableMinutes += endMinutes - startMinutes;
+                }
+            }
+
+            // Calculate scheduled minutes
+            if (targetWeek?.lessen != null)
+            {
+                foreach (var les in targetWeek.lessen)
+                {
+                    int startMinutes = TimeStringToMinutes(les.begintijd);
+                    int endMinutes = TimeStringToMinutes(les.eindtijd);
+                    scheduledMinutes += endMinutes - startMinutes;
+                }
+            }
+
+            float fillRate = totalAvailableMinutes > 0 ? 
+                (scheduledMinutes / totalAvailableMinutes) * 100 : 0;
+            fillRateText.text = $"Bezettingsgraad: {fillRate:F1}%";
+
+            // 3. Calculate unscheduled eligible students
+            int unscheduledStudents = 0;
+            foreach (var student in rijschool.leerlingen)
+            {
+                // Check if student needs lessons and has availability this week
+                if (student.frequentie > 0)
+                {
+                    bool hasAvailability = student.beschikbaarheid?
+                        .Any(b => b.weekNummer == weekNum && 
+                                 b.jaar == year && 
+                                 b.tijdslots.Any()) ?? false;
+
+                    if (hasAvailability)
+                    {
+                        // Check if student got any lessons
+                        bool hasLesson = targetWeek?.lessen?
+                            .Any(l => l.leerlingNaam == student.naam || 
+                                     (l.gereserveerdDoorLeerling != null &&
+                                      l.gereserveerdDoorLeerling
+                                        .Any(gl => gl.naam == student.naam))) ?? false;
+
+                        if (!hasLesson)
+                        {
+                            unscheduledStudents++;
+                        }
+                    }
+                }
+            }
+
+            unscheduledStudentsText.text = $"Niet ingeplande studenten: {unscheduledStudents}";
+            roosterStatistics.SetActive(true);
+        }
+
         return true;
     }
 
@@ -2858,6 +3039,103 @@ public class Rooster : MonoBehaviour
                 timeFormatWarning.GetComponentInChildren<TextMeshProUGUI>().text = "Ongeldige tijd. Gebruik formaat: uu:mm";
             }
         }
+    }
+
+    public async void OnWoonplaatsChanged(int studentIndex)
+    {
+        // Validate input
+        if (studentIndex < 0 || 
+            studentIndex >= leerlingoverzichtWoonplaats.Count || 
+            RijschoolApp.instance.selectedRijschool?.leerlingen == null || 
+            studentIndex >= RijschoolApp.instance.selectedRijschool.leerlingen.Count)
+        {
+            //Debug.LogWarning($"Invalid student index: {studentIndex}");
+            return;
+        }
+
+        // Get the input field value
+        string woonplaats = leerlingoverzichtWoonplaats[studentIndex].text;
+        
+        // Update the student's woonplaats
+        RijschoolApp.instance.selectedRijschool.leerlingen[studentIndex].woonPlaats = woonplaats;
+        
+        // Save changes to server
+        await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
+        
+        //Debug.Log($"Updated woonplaats for student {studentIndex} to {woonplaats}");
+    }
+
+    public async void OnLeerlingNameChanged(int studentIndex)
+    {
+        if (RijschoolApp.instance.selectedRijschool == null || 
+            studentIndex >= RijschoolApp.instance.selectedRijschool.leerlingen.Count ||
+            studentIndex >= leerlingoverzichtnaam.Count) return;
+
+        string newName = leerlingoverzichtnaam[studentIndex].text;
+        
+        // Don't allow empty names
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            leerlingNaamWaarschuwing.SetActive(true);
+            leerlingNaamWaarschuwing.GetComponentInChildren<TextMeshProUGUI>().text = "Vul een geldige naam in";
+            // Reset to original name
+            leerlingoverzichtnaam[studentIndex].text = RijschoolApp.instance.selectedRijschool.leerlingen[studentIndex].naam;
+            return;
+        }
+
+        // Check if name already exists (case insensitive)
+        bool nameExists = RijschoolApp.instance.selectedRijschool.leerlingen
+            .Where((l, i) => i != studentIndex) // Exclude current student
+            .Any(l => l.naam.Equals(newName, StringComparison.OrdinalIgnoreCase));
+
+        if (nameExists)
+        {
+            leerlingNaamWaarschuwing.SetActive(true);
+            leerlingNaamWaarschuwing.GetComponentInChildren<TextMeshProUGUI>().text = "Naam wordt al gebruikt";
+            // Reset to original name
+            leerlingoverzichtnaam[studentIndex].text = RijschoolApp.instance.selectedRijschool.leerlingen[studentIndex].naam;
+            return;
+        }
+
+        // Hide warning if we got this far
+        leerlingNaamWaarschuwing.SetActive(false);
+
+        // Update the student's name
+        string oldName = RijschoolApp.instance.selectedRijschool.leerlingen[studentIndex].naam;
+        RijschoolApp.instance.selectedRijschool.leerlingen[studentIndex].naam = newName;
+
+        // Update any lessons that reference this student
+        if (RijschoolApp.instance.selectedRijschool.rooster?.weken != null)
+        {
+            foreach (Week week in RijschoolApp.instance.selectedRijschool.rooster.weken)
+            {
+                if (week.lessen != null)
+                {
+                    // Update main student name in lessons
+                    foreach (Les les in week.lessen.Where(l => l.leerlingNaam == oldName))
+                    {
+                        les.leerlingNaam = newName;
+                    }
+
+                    // Update name in group reservations
+                    foreach (Les les in week.lessen)
+                    {
+                        if (les.gereserveerdDoorLeerling != null)
+                        {
+                            var student = les.gereserveerdDoorLeerling.FirstOrDefault(l => l.naam == oldName);
+                            if (student != null)
+                            {
+                                student.naam = newName;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Save changes to server
+        await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
+        LoadLessen();
     }
 }
 
