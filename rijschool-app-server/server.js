@@ -192,6 +192,11 @@ app.get("/", (req, res) => {
     res.json({ message: "Rijschool API is running" });
 });
 
+app.get("/clearPlannerCode", (req, res) => {
+    res.clearCookie("plannerCode");
+    res.json({ message: "Planner code cleared" });
+});
+
 // Add error handling middleware
 app.use((err, req, res, next) => {
     console.error("Global error handler:", err);
