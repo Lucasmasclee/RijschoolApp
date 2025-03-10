@@ -386,7 +386,7 @@ public class UnityAnalyticsManager : MonoBehaviour
         AnalyticsService.Instance.Flush();
     }
 
-    public void Instructeurcode(TMP_InputField inputFieldWachtwoord)
+    public void InstructeurcodeManual(TMP_InputField inputFieldWachtwoord)
     {
         if (!_isInitialized) return;
         if (inputFieldWachtwoord != null)
@@ -394,8 +394,24 @@ public class UnityAnalyticsManager : MonoBehaviour
             PlayerPrefs.SetInt("LeraarVerified", 1);
             PlayerPrefs.Save();
 
-            CustomEvent myEvent = new CustomEvent("instructeurcode");
+            CustomEvent myEvent = new CustomEvent("instructeurcodemanual");
             myEvent.Add("plannercode", inputFieldWachtwoord.text.ToString().ToLower());
+
+            AnalyticsService.Instance.RecordEvent(myEvent);
+            AnalyticsService.Instance.Flush();
+        }
+    }
+
+    public void InstructeurcodeQRCode(string plannercode)
+    {
+        if (!_isInitialized) return;
+        if (plannercode != null)
+        {
+            PlayerPrefs.SetInt("LeraarVerified", 1);
+            PlayerPrefs.Save();
+
+            CustomEvent myEvent = new CustomEvent("instructeurcodeqrcode");
+            myEvent.Add("plannercode", plannercode.ToLower());
 
             AnalyticsService.Instance.RecordEvent(myEvent);
             AnalyticsService.Instance.Flush();

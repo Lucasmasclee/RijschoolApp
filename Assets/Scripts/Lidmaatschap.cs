@@ -41,7 +41,10 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     {
         //InitializePurchasing();
         //CheckSubscriptionStatus();
-        StartCoroutine(CheckRedirectCode());
+        if(!PlayerPrefs.HasKey("LeraarVerified"))
+        {
+            StartCoroutine(CheckRedirectCode());
+        }
         leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
     }
     #region
@@ -174,11 +177,11 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
 
     public void OnLeraarButtonClicked()
     {
-        StartCoroutine(GetCodeFromServer());
-        //if (!PlayerPrefs.HasKey("LeraarVerified"))
-        //{
-        //    verifyLeraar.SetActive(true);
-        //}
+        //StartCoroutine(GetCodeFromServer());
+        if (!PlayerPrefs.HasKey("LeraarVerified"))
+        {
+            verifyLeraar.SetActive(true);
+        }
     }
 
     IEnumerator CheckRedirectCode()
@@ -188,14 +191,20 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
 
         if (request.result == UnityWebRequest.Result.Success)
         {
-            string code = request.downloadHandler.text;
+            string code = request.downloadHandler.text.ToLower();
             PlayerPrefs.SetString("plannerCode", code);
+            UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
+            if(validPasswords.Contains(code))
+            {
+                PlayerPrefs.SetInt("LeraarVerified", 1);
+            }
             Debug.Log("PlannerCode opgeslagen bij start: " + code);
         }
         else
         {
-            Debug.LogError("Fout bij ophalen redirect code: " + request.error);
+            //Debug.LogError("Fout bij ophalen redirect code: " + request.error);
         }
+        leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
     }
 
     IEnumerator GetCodeFromServer()
@@ -235,11 +244,5 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
             correctPassword.SetActive(false);
             incorrectPassword.SetActive(true);
         }
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 }

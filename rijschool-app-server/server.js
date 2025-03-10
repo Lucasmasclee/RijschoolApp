@@ -202,35 +202,6 @@ app.use((err, req, res, next) => {
     });
 });
 
-const router = express.Router();
-
-router.get('/redirect', (req, res) => {
-    const code = req.query.code;
-
-    if (!code) {
-        return res.status(400).send("Geen code opgegeven.");
-    }
-
-    // Zet een HTTP cookie met de code (blijft 30 dagen geldig)
-    res.cookie('plannerCode', code, { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: false });
-
-    // Redirect naar de Google Play Store (vervang met jouw app-link)
-    res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
-});
-
-router.get('/getPlannerCode', (req, res) => {
-    const plannerCode = req.cookies.plannerCode;
-
-    if (!plannerCode) {
-        return res.send("Geen code gevonden");
-    }
-
-    res.send(plannerCode);
-});
-
-module.exports = router;
-
-
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
