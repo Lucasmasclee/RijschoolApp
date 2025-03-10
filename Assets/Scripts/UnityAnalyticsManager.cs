@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using Unity.Services.Core;
 using Unity.Services.Core.Analytics;
+using TMPro;
 
 public class UnityAnalyticsManager : MonoBehaviour
 {
@@ -383,6 +384,22 @@ public class UnityAnalyticsManager : MonoBehaviour
         
         AnalyticsService.Instance.RecordEvent(myEvent);
         AnalyticsService.Instance.Flush();
+    }
+
+    public void Instructeurcode(TMP_InputField inputFieldWachtwoord)
+    {
+        if (!_isInitialized) return;
+        if (inputFieldWachtwoord != null)
+        {
+            PlayerPrefs.SetInt("LeraarVerified", 1);
+            PlayerPrefs.Save();
+
+            CustomEvent myEvent = new CustomEvent("instructeurcode");
+            myEvent.Add("plannercode", inputFieldWachtwoord.text.ToString().ToLower());
+
+            AnalyticsService.Instance.RecordEvent(myEvent);
+            AnalyticsService.Instance.Flush();
+        }
     }
     #endregion
 }

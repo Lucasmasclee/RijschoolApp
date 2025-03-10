@@ -176,12 +176,11 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
 
     public void CheckPassword()
     {
-        if (validPasswords.Contains(password.text))
+        // Playerprefs set in UnityAnalyticsManager, where the password is sent to the unity analytics dashboard
+        if (validPasswords.Contains(password.text.ToLower()))
         {
             correctPassword.SetActive(true);
             incorrectPassword.SetActive(false);
-            PlayerPrefs.SetInt("LeraarVerified", 1);
-            PlayerPrefs.Save();
         }
         else
         {

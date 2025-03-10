@@ -76,6 +76,7 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private List<GameObject> woonplaatsSettings; // Add this field
     [SerializeField] private TMP_InputField startWoonplaatsen;
     [SerializeField] private TMP_InputField eindWoonplaatsen;
+    [SerializeField] private GameObject RoosterLeerlingenButton;
     private int pendingLeerlingRemoval = -1;  // Store the index of student pending removal
 
     private List<Rijschool> alleRijscholen;
@@ -91,10 +92,70 @@ public class RijschoolApp : MonoBehaviour
     {
         await LoadRijscholen();
         instance = this;
-        SetSchermActive(true, false, false, false);
-        selectedRijschool = new Rijschool();
-        selectedRijschool.leerlingen = new List<Leerling>();
         
+        // Check if user is an instructor (has their own driving school)
+        if (PlayerPrefs.HasKey("MijnRijschool"))
+        {
+            string rijschoolNaam = PlayerPrefs.GetString("MijnRijschool");
+            selectedRijschool = alleRijscholen.FirstOrDefault(r => 
+                r.naam.Equals(rijschoolNaam, System.StringComparison.OrdinalIgnoreCase));
+            
+            if (selectedRijschool != null)
+            {
+                SetSchermActive(false, false, false, true);
+                ingelogdAlsText.gameObject.SetActive(false);
+                Rooster.instance.RoosterForInstructors(true);
+                Rooster.instance.LoadLessen();
+            }
+            else
+            {
+                SetSchermActive(true, false, false, false);
+            }
+        }
+        // Check if user is a previously logged-in student
+        else if (PlayerPrefs.HasKey("LastStudentName") && 
+                 PlayerPrefs.HasKey("LastStudentSchool") && 
+                 PlayerPrefs.HasKey("LastStudentPassword"))
+        {
+            string schoolName = PlayerPrefs.GetString("LastStudentSchool");
+            string studentName = PlayerPrefs.GetString("LastStudentName");
+            string studentPass = PlayerPrefs.GetString("LastStudentPassword");
+
+            selectedRijschool = alleRijscholen.FirstOrDefault(r => 
+                r.naam.Equals(schoolName, System.StringComparison.OrdinalIgnoreCase));
+
+            if (selectedRijschool?.leerlingen != null)
+            {
+                var student = selectedRijschool.leerlingen.FirstOrDefault(l => 
+                    l.naam.Equals(studentName, StringComparison.OrdinalIgnoreCase) && 
+                    l.wachtwoord.Equals(studentPass, StringComparison.OrdinalIgnoreCase));
+
+                if (student != null)
+                {
+                    selectedLeerling = student;
+                    SetSchermActive(false, false, false, true);
+                    Rooster.instance.RoosterForInstructors(false);
+                    Rooster.instance.LoadKiesLeerlingButtons(student);
+                    if (ingelogdAlsText != null)
+                    {
+                        ingelogdAlsText.text = "Ingelogd als: " + student.naam;
+                    }
+                }
+                else
+                {
+                    SetSchermActive(true, false, false, false);
+                }
+            }
+            else
+            {
+                SetSchermActive(true, false, false, false);
+            }
+        }
+        else
+        {
+            SetSchermActive(true, false, false, false);
+        }
+
         // Initialize lists to prevent null reference
         alleRijscholen = new List<Rijschool>();
         filteredRijscholen = new List<Rijschool>();
@@ -151,6 +212,8 @@ public class RijschoolApp : MonoBehaviour
 
         // Update UI based on settings
         UpdateWoonplaatsSettingsUI();
+
+        UpdateRoosterLeerlingenButtonVisibility();
     }
 
     public void SetSchermActive(bool start, bool leraar, bool leerling, bool rooster)
@@ -280,8 +343,8 @@ public class RijschoolApp : MonoBehaviour
         do
         {
             // Generate a 6-digit number
-            int randomNumber = random.Next(100000, 1000000);
-            password = studentName + randomNumber.ToString();
+            int randomNumber = random.Next(1000, 10000);
+            password = studentName.Substring(0,1).ToUpper() + randomNumber.ToString();
             
             // Check if this password is unique
             isUnique = !existingStudents.Any(s => s.wachtwoord == password);
@@ -367,6 +430,8 @@ public class RijschoolApp : MonoBehaviour
         {
             Debug.LogWarning("Geen rijschool geselecteerd!");
         }
+
+        UpdateRoosterLeerlingenButtonVisibility();
     }
 
     private int GetNextAvailableColorIndex()
@@ -600,6 +665,12 @@ public class RijschoolApp : MonoBehaviour
                 // Set the selected student
                 selectedLeerling = matchingStudent;
                 
+                // Store student login information in PlayerPrefs
+                PlayerPrefs.SetString("LastStudentName", matchingStudent.naam);
+                PlayerPrefs.SetString("LastStudentSchool", selectedRijschool.naam);
+                PlayerPrefs.SetString("LastStudentPassword", studentPass);
+                PlayerPrefs.Save();
+
                 // Update the logged-in text
                 if (ingelogdAlsText != null)
                 {
@@ -629,15 +700,15 @@ public class RijschoolApp : MonoBehaviour
     public async Task UpdateRijschool(Rijschool rijschool)
     {
         string jsonData = JsonUtility.ToJson(rijschool);
-        Debug.Log($"Sending update to server: {jsonData}");
+        //Debug.Log($"Sending update to server: {jsonData}");
         
         // Log specific availability data
         if (rijschool.instructeurBeschikbaarheid != null)
         {
-            Debug.Log($"Instructor availability count: {rijschool.instructeurBeschikbaarheid.Count}");
+            //Debug.Log($"Instructor availability count: {rijschool.instructeurBeschikbaarheid.Count}");
             foreach (var beschikbaarheid in rijschool.instructeurBeschikbaarheid)
             {
-                Debug.Log($"Day: {beschikbaarheid.dag}, Slots: {beschikbaarheid.tijdslots?.Count ?? 0}");
+                //Debug.Log($"Day: {beschikbaarheid.dag}, Slots: {beschikbaarheid.tijdslots?.Count ?? 0}");
             }
         }
 
@@ -649,8 +720,8 @@ public class RijschoolApp : MonoBehaviour
                 await www.SendWebRequest();
                 if (www.result == UnityWebRequest.Result.Success)
                 {
-                    Debug.Log("Rijschool updated successfully");
-                    Debug.Log($"Server response: {www.downloadHandler.text}");
+                    //Debug.Log("Rijschool updated successfully");
+                    //Debug.Log($"Server response: {www.downloadHandler.text}");
                 }
                 else
                 {
@@ -676,15 +747,29 @@ public class RijschoolApp : MonoBehaviour
     {
         if(leerlingIndex < 0)
         {
-            ingelogdAlsText.text = "";return;
+            ingelogdAlsText.text = "";
+            return;
         }
-        if (selectedRijschool != null && leerlingIndex < selectedRijschool.leerlingen.Count)
+
+        // Only change selectedLeerling if user is an instructor
+        if (PlayerPrefs.HasKey("MijnRijschool"))
         {
-            selectedLeerling = selectedRijschool.leerlingen[leerlingIndex];
-            Debug.Log($"Selected leerling: {selectedLeerling.naam}");
-            
-            // Update the ingelogd als text
-            if (ingelogdAlsText != null)
+            if (selectedRijschool != null && leerlingIndex < selectedRijschool.leerlingen.Count)
+            {
+                selectedLeerling = selectedRijschool.leerlingen[leerlingIndex];
+                Debug.Log($"Selected leerling: {selectedLeerling.naam}");
+                
+                // Update the ingelogd als text
+                if (ingelogdAlsText != null)
+                {
+                    ingelogdAlsText.text = "Ingelogd als: " + selectedLeerling.naam;
+                }
+            }
+        }
+        else
+        {
+            // For non-instructors, just update the UI text if needed
+            if (ingelogdAlsText != null && selectedLeerling != null)
             {
                 ingelogdAlsText.text = "Ingelogd als: " + selectedLeerling.naam;
             }
@@ -951,6 +1036,15 @@ public class RijschoolApp : MonoBehaviour
     {
         PlayerPrefs.SetString("EindWoonplaatsen", woonplaatsen);
         PlayerPrefs.Save();
+    }
+
+    private void UpdateRoosterLeerlingenButtonVisibility()
+    {
+        if (RoosterLeerlingenButton != null)
+        {
+            bool hasStudents = selectedRijschool?.leerlingen != null && selectedRijschool.leerlingen.Count > 0;
+            RoosterLeerlingenButton.SetActive(hasStudents);
+        }
     }
 }
 

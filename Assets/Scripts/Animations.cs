@@ -5,16 +5,14 @@ using UnityEngine.UI; // Added for Image component
 
 public class Animations : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    [SerializeField] private List<GameObject> kiesleerlingroosterbuttons;
 
-    // Update is called once per frame
-    void Update()
+    public void SetKiesLeerlingButtonsActive(bool active)
     {
-        
+        foreach(GameObject obj in kiesleerlingroosterbuttons)
+        {
+            obj.SetActive(active);
+        }
     }
 
     public void FadeOutAndDisable(GameObject targetObject)

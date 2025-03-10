@@ -10,6 +10,7 @@ using System;
 using Unity.Services.Analytics;
 using UnityEngine.SceneManagement;
 using Unity.Services.Core;
+using System.Globalization;
 
 public class Rooster : MonoBehaviour
 {
@@ -48,7 +49,8 @@ public class Rooster : MonoBehaviour
     [SerializeField] private GameObject instructeurSelecteertLes;
     [SerializeField] private GameObject leerlingSelecteertLes;
     [SerializeField] private List<GameObject> leerlingenToewijzen;
-    [SerializeField] private List<GameObject> kiesleerlingButtons;
+    [SerializeField] private List<GameObject> kiesleerlingButtons; // Has only 1 element
+    [SerializeField] private List<GameObject> kiesleerlingButtons2; // Has only 1 element
     [SerializeField] private List<GameObject> leerlingoverzicht;
     [SerializeField] private List<TMP_InputField> leerlingoverzichtMinutesPerLes;
 
@@ -87,8 +89,22 @@ public class Rooster : MonoBehaviour
 
     [SerializeField] private GameObject leerlingNaamWaarschuwing;
 
+    // Add this near the top with other SerializeField declarations
+    [SerializeField] private GameObject noStudentsMessage;
+
+    [SerializeField] private GameObject Buttons;
+
+    // Add near other SerializeField declarations
+    [SerializeField] private TextMeshProUGUI copyForXWeeks;
+
+    // Add this field with the other SerializeField declarations
+    [SerializeField] private TextMeshProUGUI selectedDayText;
+
+    [SerializeField] private TextMeshProUGUI lesGeselecteerdText;  // Add this at the top with other SerializeFields
+
     private void Start()
     {
+        selectedWeek = 0;
         UnityServices.InitializeAsync();
         AnalyticsService.Instance.StartDataCollection();
         string currentSceneName = "teststartscene";
@@ -145,8 +161,12 @@ public class Rooster : MonoBehaviour
     private void UpdateWeekDisplay()
     {
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
+
+        //System.DateTime now = System.DateTime.Now;
+        //System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        //monday = monday.AddDays(7 * selectedWeek);
 
         System.DateTime sunday = monday.AddDays(6);
 
@@ -157,28 +177,53 @@ public class Rooster : MonoBehaviour
         weekDateText.text = $"{startDate} - {endDate}";
     }
 
-    public void GoToPreviousWeek()
-    {
-        selectedWeek--;
-        UpdateWeekDisplay();
-        //RijschoolApp.instance.UpdateWeekOffsetText(selectedWeek);
-        RefreshDisplay();
-    }
-
-    public void GoToNextWeek()
+    public void NextWeek()
     {
         selectedWeek++;
         UpdateWeekDisplay();
-        //RijschoolApp.instance.UpdateWeekOffsetText(selectedWeek);
-        RefreshDisplay();
+
+        // Get current week info
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
+        monday = monday.AddDays(7 * selectedWeek);
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
+
+        Debug.Log($"Moving to next week. SelectedWeek offset: {selectedWeek}, Target week number: {weekNum}");
+        LoadLessen();
+    }
+
+    public void PreviousWeek()
+    {
+        selectedWeek--;
+        UpdateWeekDisplay();
+
+
+        // Get current week info
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
+        monday = monday.AddDays(7 * selectedWeek);
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
+        
+        Debug.Log($"Moving to previous week. SelectedWeek offset: {selectedWeek}, Target week number: {weekNum}");
+        LoadLessen();
     }
 
     public void LoadKiesLeerlingButtons(Leerling student)
     {
+        // First hide all buttons
         foreach (GameObject obj in kiesleerlingButtons)
         {
             obj.SetActive(false);
         }
+
+        // Show/hide no students message
+        if (RijschoolApp.instance?.selectedRijschool?.leerlingen == null || 
+            RijschoolApp.instance.selectedRijschool.leerlingen.Count == 0)
+        {
+            //noStudentsMessage.SetActive(true);
+            return;
+        }
+        //noStudentsMessage.SetActive(false);
 
         // Only show the first button with the logged-in student's information
         if (kiesleerlingButtons.Count > 0)
@@ -189,6 +234,58 @@ public class Rooster : MonoBehaviour
             Image image = button.GetComponent<Image>();
             image.color = RijschoolApp.instance.leerlingKleuren[student.colorIndex];
 
+            TextMeshProUGUI naamtext = button.GetComponentInChildren<TextMeshProUGUI>();
+            naamtext.text = student.naam;
+        }
+    }
+
+    public void LoadAllKiesLeerlingButtons()
+    {
+        // First hide all buttons
+        foreach (GameObject obj in kiesleerlingButtons)
+        {
+            obj.SetActive(false);
+        }
+        foreach (GameObject obj in kiesleerlingButtons2)
+        {
+            obj.SetActive(false);
+        }
+
+        // Get the list of students from the selected driving school
+        var rijschool = RijschoolApp.instance?.selectedRijschool;
+        if (rijschool?.leerlingen == null || rijschool.leerlingen.Count == 0)
+        {
+            //noStudentsMessage.SetActive(true);
+            return;
+        }
+        //noStudentsMessage.SetActive(false);
+
+        // Show and configure buttons for each student
+        for (int i = 0; i < rijschool.leerlingen.Count && i < kiesleerlingButtons.Count; i++)
+        {
+            var student = rijschool.leerlingen[i];
+            GameObject button = kiesleerlingButtons[i];
+            button.SetActive(true);
+
+            // Set button color based on student's color index
+            Image image = button.GetComponent<Image>();
+            image.color = RijschoolApp.instance.leerlingKleuren[student.colorIndex];
+
+            // Set student name
+            TextMeshProUGUI naamtext = button.GetComponentInChildren<TextMeshProUGUI>();
+            naamtext.text = student.naam;
+        }
+        for (int i = 0; i < rijschool.leerlingen.Count && i < kiesleerlingButtons2.Count; i++)
+        {
+            var student = rijschool.leerlingen[i];
+            GameObject button = kiesleerlingButtons2[i];
+            button.SetActive(true);
+
+            // Set button color based on student's color index
+            Image image = button.GetComponent<Image>();
+            image.color = RijschoolApp.instance.leerlingKleuren[student.colorIndex];
+
+            // Set student name
             TextMeshProUGUI naamtext = button.GetComponentInChildren<TextMeshProUGUI>();
             naamtext.text = student.naam;
         }
@@ -240,32 +337,15 @@ public class Rooster : MonoBehaviour
         {
             DisplayAvailabilityTimeSlots(false); // Only load availability for students
         }
-
-        //Debug.Log($"Finished loading {(isInstructor ? "instructor" : "student")} schedule");
-
-        // Update login text based on user type
-        //if (ingelogdAlsText != null)
-        //{
-        //    if (isInstructor)
-        //    {
-        //        ingelogdAlsText.text = "";
-        //    }
-        //    else if (RijschoolApp.instance.selectedLeerling != null)
-        //    {
-        //        ingelogdAlsText.text = "Ingelogd als: " + RijschoolApp.instance.selectedLeerling.naam;
-        //    }
-        //    else
-        //    {
-        //        ingelogdAlsText.text = "Ingelogd als: -";
-        //    }
-        //}
     }
 
     public void LoadLessen(bool loadAvailability = true)
     {
+        //print("0");
+
         // Get current week's Monday
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
 
         // Update the date texts for each day
@@ -340,23 +420,32 @@ public class Rooster : MonoBehaviour
 
         // Load actual lessons
         var rijschool = RijschoolApp.instance?.selectedRijschool;
-        if (rijschool?.rooster?.weken == null) return;
+        if (rijschool?.rooster?.weken == null)
+        {
+            print("returning"); return;
+        }
 
         // Get current week info
         //System.DateTime now = System.DateTime.Now;
         //System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
-        monday = monday.AddDays(7 * selectedWeek);
+        //monday = monday.AddDays(7 * selectedWeek);
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        print("Weeknum: " + weekNum);
 
         // Find the week in the rooster
         Week targetWeek = rijschool.rooster.weken.FirstOrDefault(w => w.weekNummer == weekNum);
-        if (targetWeek?.lessen == null) return;
+        if (targetWeek?.lessen == null)
+        {
+            print("returning"); return;
+        }
 
         // Get the next available pool index
         int poolIndex = GetNextAvailablePoolIndex();
 
+        //print("1");
         foreach (var les in targetWeek.lessen)
         {
+            //print("2");
             if (poolIndex >= lesPool.Count)
             {
                 Debug.LogWarning("Not enough lesson objects in pool!");
@@ -370,6 +459,8 @@ public class Rooster : MonoBehaviour
 
             if (dayIndex >= 0 && dayIndex < lessenParents.Count)  // Changed from dagenScrollview to lessenParents
             {
+                //print("3");
+
                 GameObject lesObject = lesPool[poolIndex];
                 poolIndex++;
 
@@ -411,7 +502,7 @@ public class Rooster : MonoBehaviour
                     Les currentLes = les;
                     button.onClick.AddListener(() => OnLesSelected(currentLes));
                 }
-
+                //print("Setting " + lesObject.name + " active");
                 lesObject.SetActive(true);
                 
                 //Debug.Log($"Displayed lesson: {les.begintijd} - {les.eindtijd} for {les.leerlingNaam} on day {dayIndex}");
@@ -458,8 +549,9 @@ public class Rooster : MonoBehaviour
 
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
+
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
 
@@ -596,6 +688,8 @@ public class Rooster : MonoBehaviour
 
     private void OnAvailabilitySlotClicked(int dayIndex, string startTime, string endTime)
     {
+        lesGeselecteerdText.text = "Verwijder Beschikbaarheid";
+
         selectedDay = dayIndex;
         string selectedDag = GetDayName(dayIndex);
 
@@ -661,6 +755,9 @@ public class Rooster : MonoBehaviour
     public void OnLesSelected(Les les)
     {
         selectedLes = les;
+        selectedTimeSlot = null;  // Clear any selected time slot
+
+        lesGeselecteerdText.text = "Verwijder Les";
 
         instructeurSelecteertLes.SetActive(false);
         leerlingSelecteertLes.SetActive(false);
@@ -759,9 +856,10 @@ public class Rooster : MonoBehaviour
 
         var rijschool = RijschoolApp.instance.selectedRijschool;
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
 
         if (roosterInstructor)
@@ -821,14 +919,6 @@ public class Rooster : MonoBehaviour
                 // Refresh the display
                 RefreshDisplay();
             }
-            else
-            {
-                //Debug.LogWarning($"Les niet gevonden in week {selectedLes.weekNummer}!");
-            }
-        }
-        else
-        {
-            //Debug.LogWarning("Geen rijschool of les geselecteerd!");
         }
     }
 
@@ -1070,11 +1160,12 @@ public class Rooster : MonoBehaviour
     public async Task<bool> GenerateSchedule(bool minimizeChanges = true)
     {
         //Debug.Log("Starting schedule generation...");
-        
-        DateTime now = DateTime.Now;
-        DateTime monday = now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday);
+
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
 
         var rijschool = RijschoolApp.instance.selectedRijschool;
@@ -1179,13 +1270,6 @@ public class Rooster : MonoBehaviour
                     .Where(kvp => {
                         var student = kvp.Key;
                         var slots = kvp.Value;
-                        
-                        // Debug logging for eligibility checks
-                        //Debug.Log($"\nChecking eligibility for {student}:");
-                        //Debug.Log($"- Lessons needed: {studentRequirements[student].frequency}, " +
-                        //        $"assigned: {assignedLessonsPerStudent[student]}");
-                        //Debug.Log($"- Has lesson today: {lessonsPerStudentPerDay[student].Contains(instructorSlot.Day)}");
-                        
                         // Check if student still needs lessons
                         if (assignedLessonsPerStudent[student] >= studentRequirements[student].frequency)
                         {
@@ -1337,6 +1421,7 @@ public class Rooster : MonoBehaviour
 
         // Save the updated schedule
         await RijschoolApp.instance.UpdateRijschool(rijschool);
+        print("loading lessons");
         LoadLessen();
         UnityAnalyticsManager.Instance.TrackScheduleGeneration(minimizeChanges, targetWeek?.lessen?.Count ?? 0);
 
@@ -1566,8 +1651,9 @@ public class Rooster : MonoBehaviour
 
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
+
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
 
@@ -1804,11 +1890,12 @@ public class Rooster : MonoBehaviour
     public async void ResetWeekAvailability()
     {
         //Debug.Log("Resetting availability for the selected week");
-        
+
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
+
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
 
@@ -1842,32 +1929,91 @@ public class Rooster : MonoBehaviour
 
     public async void ResetWeekLessons()
     {
-        //Debug.Log("Resetting lessons for the selected week");
-        
+        Debug.Log("Starting ResetWeekLessons...");
+
+        print("Selectedweek: " + selectedWeek);
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
 
-        var rijschool = RijschoolApp.instance.selectedRijschool;
-        if (rijschool?.rooster?.weken == null) return;
+        Debug.Log($"Starting week reset - Current selectedWeek offset: {selectedWeek}");
+        Debug.Log($"Calculated date: {monday:dd-MM-yyyy}");
+        Debug.Log($"Target Week Number: {weekNum}, Year: {year}");
 
-        // Find the week in the rooster
-        Week targetWeek = rijschool.rooster.weken.FirstOrDefault(w => 
-            w.weekNummer == weekNum && 
-            w.jaar == year);
-
-        if (targetWeek != null)
+        var rijschool = RijschoolApp.instance?.selectedRijschool;
+        if (rijschool?.rooster?.weken == null)
         {
-            // Clear all lessons for this week
-            targetWeek.lessen.Clear();
-            //Debug.Log($"Reset all lessons for week {weekNum}");
+            Debug.LogError("Rijschool, rooster, or weken is null");
+            return;
+        }
 
-            // Save changes and refresh display
+        // Create a new sorted list with all weeks
+        List<Week> updatedWeeks = rijschool.rooster.weken
+            .OrderBy(w => w.jaar)
+            .ThenBy(w => w.weekNummer)
+            .ToList();
+
+        Debug.Log("All weeks in rooster before reset (sorted):");
+        foreach (var week in updatedWeeks)
+        {
+            Debug.Log($"Week {week.weekNummer}, Year {week.jaar}: {week.lessen?.Count ?? 0} lessons");
+        }
+
+        // Find and update the target week
+        var targetWeek = updatedWeeks
+            .FirstOrDefault(w => w.weekNummer == weekNum && w.jaar == year);
+
+        if (targetWeek == null)
+        {
+            Debug.Log($"No week found to reset for Week {weekNum}, Year {year}");
+            return;
+        }
+
+        Debug.Log($"Found target week {weekNum} with {targetWeek.lessen?.Count ?? 0} lessons");
+
+        // Remove the existing week
+        updatedWeeks.Remove(targetWeek);
+
+        // Create a new week with the same details but no lessons
+        var newWeek = new Week
+        {
+            weekNummer = weekNum,
+            jaar = year,
+            lessen = new List<Les>()
+        };
+
+        // Add the updated week back to the list and sort again
+        updatedWeeks.Add(newWeek);
+        updatedWeeks = updatedWeeks
+            .OrderBy(w => w.jaar)
+            .ThenBy(w => w.weekNummer)
+            .ToList();
+
+        Debug.Log("All weeks in rooster after reset (sorted):");
+        foreach (var week in updatedWeeks)
+        {
+            Debug.Log($"Week {week.weekNummer}, Year {week.jaar}: {week.lessen?.Count ?? 0} lessons");
+        }
+
+        try
+        {
+            // Update the rijschool's weeks list with the sorted list
+            rijschool.rooster.weken = updatedWeeks;
+            
+            Debug.Log("Saving changes to server...");
             await RijschoolApp.instance.UpdateRijschool(rijschool);
+            Debug.Log("Successfully saved changes to server");
+            
+            // Refresh the display
             LoadLessen();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error saving to server: {e.Message}\n{e.StackTrace}");
         }
     }
 
@@ -1936,28 +2082,21 @@ public class Rooster : MonoBehaviour
         }
     }
 
-    private void ModifyLesson(Les les, string modificationType, string reason)
-    {
-        // ... existing modification code ...
-        UnityAnalyticsManager.Instance.TrackLessonModification(modificationType, reason);
-    }
-
-    private void UpdateInstructorUtilization(string instructorName, float utilizationRate)
-    {
-        UnityAnalyticsManager.Instance.TrackInstructorUtilization(instructorName, utilizationRate);
-    }
-
     public async Task CopyInstructorAvailabilityToNextWeeks()
     {
-        //Debug.Log("Copying instructor availability to next 4 weeks");
+        if (!int.TryParse(copyForXWeeks.text, out int weeksToGenerate))
+        {
+            weeksToGenerate = 4; // fallback to default
+        }
         
         var rijschool = RijschoolApp.instance?.selectedRijschool;
         if (rijschool?.instructeurBeschikbaarheid == null) return;
 
         // Get current week info
-        DateTime now = DateTime.Now;
-        DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
+
         int sourceWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
         int sourceYear = monday.Year;
 
@@ -1972,8 +2111,8 @@ public class Rooster : MonoBehaviour
             return;
         }
 
-        // Copy to next 4 weeks
-        for (int weekOffset = 1; weekOffset <= 4; weekOffset++)
+        // Copy to specified number of weeks
+        for (int weekOffset = 1; weekOffset <= weeksToGenerate; weekOffset++)
         {
             DateTime targetMonday = monday.AddDays(7 * weekOffset);
             int targetWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(targetMonday);
@@ -2014,15 +2153,19 @@ public class Rooster : MonoBehaviour
 
     public async Task CopyStudentAvailabilityToNextWeeks()
     {
-        Debug.Log("Copying student availability to next 4 weeks");
+        if (!int.TryParse(copyForXWeeks.text, out int weeksToGenerate))
+        {
+            weeksToGenerate = 4; // fallback to default
+        }
         
         var student = RijschoolApp.instance?.selectedLeerling;
         if (student?.beschikbaarheid == null) return;
 
         // Get current week info
-        DateTime now = DateTime.Now;
-        DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
+
         int sourceWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
         int sourceYear = monday.Year;
 
@@ -2037,8 +2180,8 @@ public class Rooster : MonoBehaviour
             return;
         }
 
-        // Copy to next 4 weeks
-        for (int weekOffset = 1; weekOffset <= 4; weekOffset++)
+        // Copy to specified number of weeks
+        for (int weekOffset = 1; weekOffset <= weeksToGenerate; weekOffset++)
         {
             DateTime targetMonday = monday.AddDays(7 * weekOffset);
             int targetWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(targetMonday);
@@ -2079,84 +2222,170 @@ public class Rooster : MonoBehaviour
 
     public async Task CopyLessonsToNextWeeks()
     {
-        Debug.Log("Copying lessons to next 4 weeks");
-        
         var rijschool = RijschoolApp.instance?.selectedRijschool;
-        if (rijschool?.rooster?.weken == null) return;
-
-        // Get current week info
-        DateTime now = DateTime.Now;
-        DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        List<Week> updatedWeeks = rijschool.rooster.weken
+            .OrderBy(w => w.jaar)
+            .ThenBy(w => w.weekNummer)
+            .ToList();
+        // Get source week info
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int sourceWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        int sourceWeekNum = ISOWeek.GetWeekOfYear(monday);
         int sourceYear = monday.Year;
 
-        // Get source week
-        var sourceWeek = rijschool.rooster.weken
-            .FirstOrDefault(w => w.weekNummer == sourceWeekNum && w.jaar == sourceYear);
+        Debug.Log($"Starting copy process from Week {sourceWeekNum}, Year {sourceYear}");
 
-        if (sourceWeek?.lessen == null || !sourceWeek.lessen.Any())
+        if (rijschool == null)
         {
-            Debug.Log("No lessons found in source week");
+            Debug.LogError("No rijschool selected");
             return;
         }
 
-        // Copy to next 4 weeks
-        for (int weekOffset = 1; weekOffset <= 4; weekOffset++)
+        // Initialize rooster if null
+        if (rijschool.rooster == null)
         {
-            DateTime targetMonday = monday.AddDays(7 * weekOffset);
-            int targetWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(targetMonday);
+            rijschool.rooster = new LesRooster();
+        }
+        if (rijschool.rooster.weken == null)
+        {
+            rijschool.rooster.weken = new List<Week>();
+        }
+
+        // Find source week
+        var sourceWeek = rijschool.rooster.weken
+            .FirstOrDefault(w => w.weekNummer == sourceWeekNum && w.jaar == sourceYear);
+
+        if (sourceWeek == null)
+        {
+            Debug.LogError($"Source week not found for week {sourceWeekNum}");
+            return;
+        }
+
+        if (sourceWeek.lessen == null || sourceWeek.lessen.Count == 0)
+        {
+            Debug.Log($"No lessons found in source week {sourceWeekNum}");
+            return;
+        }
+
+        Debug.Log($"Found {sourceWeek.lessen.Count} lessons in source week");
+
+        // Get number of weeks to copy
+        int weeksToGenerate = 4;
+        if (copyForXWeeks != null && int.TryParse(copyForXWeeks.text, out int weeks))
+        {
+            weeksToGenerate = weeks;
+        }
+
+        Debug.Log($"Will copy to {weeksToGenerate} weeks");
+
+        // Create a new list to store all weeks (existing and new)
+        //List<Week> updatedWeeks = new List<Week>(rijschool.rooster.weken);
+
+        // Copy to subsequent weeks
+        for (int i = 1; i <= weeksToGenerate; i++)
+        {
+            DateTime targetMonday = monday.AddDays(7 * i);
+            int targetWeekNum = ISOWeek.GetWeekOfYear(targetMonday);
             int targetYear = targetMonday.Year;
 
+            Debug.Log($"Processing target Week {targetWeekNum}, Year {targetYear}");
+
             // Find or create target week
-            var targetWeek = rijschool.rooster.weken
+            Week targetWeek = updatedWeeks
                 .FirstOrDefault(w => w.weekNummer == targetWeekNum && w.jaar == targetYear);
 
             if (targetWeek == null)
             {
-                targetWeek = new Week { weekNummer = targetWeekNum, jaar = targetYear, lessen = new List<Les>() };
-                rijschool.rooster.weken.Add(targetWeek);
+                targetWeek = new Week 
+                { 
+                    weekNummer = targetWeekNum, 
+                    jaar = targetYear,
+                    lessen = new List<Les>() 
+                };
+                updatedWeeks.Add(targetWeek);
+                Debug.Log($"Created new week {targetWeekNum}");
             }
-
-            // Check if target week already has lessons
-            if (targetWeek.lessen.Any())
+            else
             {
-                Debug.Log($"Skipping week {targetWeekNum} as it already has lessons");
-                continue;
+                // Remove existing week so we can replace it
+                updatedWeeks.Remove(targetWeek);
+                targetWeek = new Week
+                {
+                    weekNummer = targetWeekNum,
+                    jaar = targetYear,
+                    lessen = new List<Les>()
+                };
+                updatedWeeks.Add(targetWeek);
             }
 
             // Copy lessons to target week
             foreach (var sourceLes in sourceWeek.lessen)
             {
-                // Parse the source date to get the day of week
-                DateTime sourceDate = DateTime.ParseExact(sourceLes.datum, "dd-MM-yyyy", null);
-                int dayOffset = (int)sourceDate.DayOfWeek - (int)monday.DayOfWeek;
-                
-                // Calculate new date for the target week
-                DateTime targetDate = targetMonday.AddDays(dayOffset);
-                
-                var newLes = new Les
+                try
                 {
-                    begintijd = sourceLes.begintijd,
-                    eindtijd = sourceLes.eindtijd,
-                    datum = targetDate.ToString("dd-MM-yyyy"),
-                    weekNummer = targetWeekNum,
-                    leerlingNaam = sourceLes.leerlingNaam,
-                    gereserveerdDoorLeerling = sourceLes.gereserveerdDoorLeerling?.Select(l => new Leerling
+                    // Parse the source date to get the day of week
+                    DateTime sourceDate = DateTime.ParseExact(sourceLes.datum, "dd-MM-yyyy", null);
+                    int dayOffset = (int)sourceDate.DayOfWeek - (int)monday.DayOfWeek;
+                    
+                    // Calculate new date for the target week
+                    DateTime targetDate = targetMonday.AddDays(dayOffset);
+                    
+                    var newLes = new Les
                     {
-                        naam = l.naam,
-                        frequentie = l.frequentie,
-                        colorIndex = l.colorIndex
-                    }).ToList(),
-                    isAutomatischGepland = sourceLes.isAutomatischGepland
-                };
-                targetWeek.lessen.Add(newLes);
+                        begintijd = sourceLes.begintijd,
+                        eindtijd = sourceLes.eindtijd,
+                        datum = targetDate.ToString("dd-MM-yyyy"),
+                        weekNummer = targetWeekNum,
+                        leerlingNaam = sourceLes.leerlingNaam,
+                        notities = sourceLes.notities,
+                        isAutomatischGepland = sourceLes.isAutomatischGepland
+                    };
+
+                    // Deep copy of gereserveerdDoorLeerling
+                    if (sourceLes.gereserveerdDoorLeerling != null)
+                    {
+                        newLes.gereserveerdDoorLeerling = sourceLes.gereserveerdDoorLeerling
+                            .Select(l => new Leerling
+                            {
+                                naam = l.naam,
+                                frequentie = l.frequentie,
+                                colorIndex = l.colorIndex,
+                                minutesPerLes = l.minutesPerLes,
+                                woonPlaats = l.woonPlaats,
+                                wachtwoord = l.wachtwoord
+                            }).ToList();
+                    }
+
+                    targetWeek.lessen.Add(newLes);
+                    Debug.Log($"Copied lesson for {newLes.leerlingNaam} to {newLes.datum} in week {targetWeekNum}");
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Error copying lesson: {e.Message}");
+                }
             }
-            Debug.Log($"Copied lessons to week {targetWeekNum}");
+
+            Debug.Log($"Added {targetWeek.lessen.Count} lessons to week {targetWeekNum}");
         }
 
-        await RijschoolApp.instance.UpdateRijschool(rijschool);
-        LoadLessen();
+        try
+        {
+            Debug.Log($"Updating rijschool with {updatedWeeks.Count} weeks");
+            // Update the rijschool's rooster with the new weeks list
+            rijschool.rooster.weken = updatedWeeks;
+            
+            Debug.Log("Attempting to save changes to server...");
+            await RijschoolApp.instance.UpdateRijschool(rijschool);
+            Debug.Log("Successfully saved changes to server");
+            
+            // Refresh the display
+            LoadLessen();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error saving to server: {e.Message}");
+        }
     }
 
     // Example button click handlers
@@ -2201,9 +2430,10 @@ public class Rooster : MonoBehaviour
     {
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
         string selectedDag = GetDayName(selectedDay);
 
@@ -2319,9 +2549,11 @@ public class Rooster : MonoBehaviour
     {
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        monday = monday.AddDays(7 * selectedWeek);
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
         string selectedDag = GetDayName(selectedDay);
 
@@ -2437,9 +2669,10 @@ public class Rooster : MonoBehaviour
     {
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
         string selectedDag = GetDayName(selectedDay);
 
@@ -2470,7 +2703,7 @@ public class Rooster : MonoBehaviour
         }
 
         // Check for overlaps
-        if (HasOverlappingTimeSlot(existingSlots, "08:00", "16:00"))
+        if (HasOverlappingTimeSlot(existingSlots, "06:00", "22:00"))
         {
             timeFormatWarning.SetActive(true);
             timeFormatWarning.GetComponentInChildren<TextMeshProUGUI>().text = "Tijdsloten overlappen";
@@ -2505,8 +2738,8 @@ public class Rooster : MonoBehaviour
 
             dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
             { 
-                startTijd = "08:00",
-                eindTijd = "16:00"
+                startTijd = "06:00",
+                eindTijd = "22:00"
             });
         }
         else if (RijschoolApp.instance.selectedLeerling != null)
@@ -2567,20 +2800,41 @@ public class Rooster : MonoBehaviour
             }
         }
 
-        // Update visibility of all buttons
-        foreach (var button in nextLeerlingRoosterButtons)
+        var rijschool = RijschoolApp.instance?.selectedRijschool;
+        if (!shouldShowButtons || rijschool?.leerlingen == null || rijschool.leerlingen.Count == 0)
         {
-            if (button != null)
+            // Hide all buttons if we shouldn't show them or if there are no students
+            foreach (var button in nextLeerlingRoosterButtons)
             {
-                button.SetActive(shouldShowButtons);
+                if (button != null)
+                {
+                    button.SetActive(false);
+                }
             }
+            return;
         }
 
-        // Update the text for next/previous student names if buttons should be shown
-        if (shouldShowButtons && nextLeerlingRoosterButtons.Count >= 2)
+        // Handle button visibility based on student count
+        if (nextLeerlingRoosterButtons.Count >= 2)
         {
-            var rijschool = RijschoolApp.instance?.selectedRijschool;
-            if (rijschool?.leerlingen == null || rijschool.leerlingen.Count == 0) return;
+            switch (rijschool.leerlingen.Count)
+            {
+                case 1:
+                    // If only one student, hide both buttons
+                    nextLeerlingRoosterButtons[0].SetActive(false);
+                    nextLeerlingRoosterButtons[1].SetActive(false);
+                    return;
+                case 2:
+                    // If two students, show only next button
+                    nextLeerlingRoosterButtons[0].SetActive(true);
+                    nextLeerlingRoosterButtons[1].SetActive(false);
+                    break;
+                default:
+                    // Three or more students, show both buttons
+                    nextLeerlingRoosterButtons[0].SetActive(true);
+                    nextLeerlingRoosterButtons[1].SetActive(true);
+                    break;
+            }
 
             // Find current student index
             int currentIndex = rijschool.leerlingen.FindIndex(l => 
@@ -2598,11 +2852,14 @@ public class Rooster : MonoBehaviour
                 nextStudentText.text = rijschool.leerlingen[nextIndex].naam;
             }
 
-            // Update previous student button text
-            TextMeshProUGUI prevStudentText = nextLeerlingRoosterButtons[1].GetComponentInChildren<TextMeshProUGUI>();
-            if (prevStudentText != null)
+            // Update previous student button text if we have more than 2 students
+            if (rijschool.leerlingen.Count > 2)
             {
-                prevStudentText.text = rijschool.leerlingen[previousIndex].naam;
+                TextMeshProUGUI prevStudentText = nextLeerlingRoosterButtons[1].GetComponentInChildren<TextMeshProUGUI>();
+                if (prevStudentText != null)
+                {
+                    prevStudentText.text = rijschool.leerlingen[previousIndex].naam;
+                }
             }
         }
     }
@@ -2625,7 +2882,7 @@ public class Rooster : MonoBehaviour
         Debug.Log($"Switching to next student: {RijschoolApp.instance.selectedLeerling.naam}");
 
         // Update ingelogd als text
-        ingelogdAlsText.text = $"Ingelogd als: {RijschoolApp.instance.selectedLeerling.naam}";
+        ingelogdAlsText.text = $"Rooster van: {RijschoolApp.instance.selectedLeerling.naam}";
 
         // Refresh the display
         DisplayAvailabilityTimeSlots();
@@ -2650,7 +2907,7 @@ public class Rooster : MonoBehaviour
         Debug.Log($"Switching to previous student: {RijschoolApp.instance.selectedLeerling.naam}");
 
         // Update ingelogd als text
-        ingelogdAlsText.text = $"Ingelogd als: {RijschoolApp.instance.selectedLeerling.naam}";
+        ingelogdAlsText.text = $"Rooster van: {RijschoolApp.instance.selectedLeerling.naam}";
 
         // Refresh the display
         DisplayAvailabilityTimeSlots();
@@ -2674,31 +2931,37 @@ public class Rooster : MonoBehaviour
     }
 
     // Update these methods to include week text updates
-    public void NextWeek()
-    {
-        selectedWeek++;
-        if (roosterInstructor)
-        {
-            LoadLessen();
-        }
-        else
-        {
-            DisplayAvailabilityTimeSlots();
-        }
-    }
+    //public void NextWeek()
+    //{
+    //    DateTime now = DateTime.Now;
+    //    DateTime currentMonday = now.AddDays(-(int)now.DayOfWeek + 1);
+    //    DateTime targetMonday = currentMonday.AddDays(7 * (selectedWeek + 1));
+        
+    //    // Calculate the actual week difference from now
+    //    TimeSpan weekDiff = targetMonday - currentMonday;
+    //    selectedWeek = (int)(weekDiff.Days / 7);
+        
+    //    Debug.Log($"Moving to next week. New selectedWeek: {selectedWeek}, " +
+    //              $"Actual week number: {ISOWeek.GetWeekOfYear(targetMonday)}");
+        
+    //    LoadLessen();
+    //}
 
-    public void PreviousWeek()
-    {
-        selectedWeek--;
-        if (roosterInstructor)
-        {
-            LoadLessen();
-        }
-        else
-        {
-            DisplayAvailabilityTimeSlots();
-        }
-    }
+    //public void PreviousWeek()
+    //{
+    //    DateTime now = DateTime.Now;
+    //    DateTime currentMonday = now.AddDays(-(int)now.DayOfWeek + 1);
+    //    DateTime targetMonday = currentMonday.AddDays(7 * (selectedWeek - 1));
+        
+    //    // Calculate the actual week difference from now
+    //    TimeSpan weekDiff = targetMonday - currentMonday;
+    //    selectedWeek = (int)(weekDiff.Days / 7);
+        
+    //    Debug.Log($"Moving to previous week. New selectedWeek: {selectedWeek}, " +
+    //              $"Actual week number: {ISOWeek.GetWeekOfYear(targetMonday)}");
+        
+    //    LoadLessen();
+    //}
 
     public async void ModifyLesStartTime(TMP_InputField startTimeInput)
     {
@@ -2726,9 +2989,10 @@ public class Rooster : MonoBehaviour
 
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
 
         // Check for overlapping lessons
@@ -2801,9 +3065,10 @@ public class Rooster : MonoBehaviour
 
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
 
         // Check for overlapping lessons
@@ -2881,15 +3146,16 @@ public class Rooster : MonoBehaviour
         {
             Debug.LogWarning("End time is before or equal to start time");
             invalidTimeFormatWarning.SetActive(true);
-            timeFormatWarning.GetComponentInChildren<TextMeshProUGUI>().text = "De eindtijd moet na de begintijd liggen";
+            timeFormatWarning.GetComponentInChildren<TextMeshProUGUI>().text = "Ongeldige tijden";
             return;
         }
 
         // Get current week info
         System.DateTime now = System.DateTime.Now;
-        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
         int year = monday.Year;
         Debug.Log($"Checking for week {weekNum} of year {year}");
 
@@ -3015,6 +3281,9 @@ public class Rooster : MonoBehaviour
         GameObject activePanelnew = roosterInstructor ? LeraarLesLeerlingLes[0] : LeraarLesLeerlingLes[1];
         activePanelnew.transform.parent.gameObject.SetActive(false);
         RefreshDisplay();
+
+        // Show the buttons after successful modification
+        Buttons.SetActive(true);
     }
 
     public void FormatTimeInputField(TMP_InputField inputField)
@@ -3132,10 +3401,61 @@ public class Rooster : MonoBehaviour
                 }
             }
         }
-
-        // Save changes to server
-        await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
+            
+            // Save changes to server
+            await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
         LoadLessen();
+    }
+
+    public void ModifyCopyWeeks(bool increase)
+    {
+        if (copyForXWeeks == null) return;
+        
+        // Parse current value
+        if (int.TryParse(copyForXWeeks.text, out int currentWeeks))
+        {
+            // Increase or decrease, ensuring value stays positive
+            int newWeeks = increase ? currentWeeks + 1 : Math.Max(1, currentWeeks - 1);
+            copyForXWeeks.text = newWeeks.ToString();
+        }
+        else
+        {
+            // If parsing fails, reset to default value
+            copyForXWeeks.text = "4";
+        }
+    }
+
+    // Add this function
+    public void UpdateSelectedDayText(int dayIndex)
+    {
+        // Get current date info
+        DateTime now = DateTime.Now;
+        DateTime monday = now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday);
+        monday = monday.AddDays(7 * selectedWeek);
+        
+        // Get the target date
+        DateTime targetDate = monday.AddDays(dayIndex);
+        
+        // Dutch day names
+        string[] dutchDayNames = {
+            "Maandag", "Dinsdag", "Woensdag", "Donderdag", 
+            "Vrijdag", "Zaterdag", "Zondag"
+        };
+        
+        // Dutch month names
+        string[] dutchMonthNames = {
+            "Januari", "Februari", "Maart", "April", "Mei", "Juni",
+            "Juli", "Augustus", "September", "Oktober", "November", "December"
+        };
+        
+        // Format the date string
+        string formattedDate = $"{dutchDayNames[dayIndex]} {targetDate.Day} {dutchMonthNames[targetDate.Month - 1]}";
+        
+        // Update the UI text
+        if (selectedDayText != null)
+        {
+            selectedDayText.text = formattedDate;
+        }
     }
 }
 

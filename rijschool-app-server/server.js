@@ -2,12 +2,21 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
+const cookieParser = require('cookie-parser');
+
 
 const app = express();
+app.use(cookieParser());
 
 // Middleware
 app.use(express.json());
 app.use(cors());
+
+const redirectRoute = require('./routes/redirect'); // Check of het pad klopt
+const getPlannerCodeRoute = require('./routes/getPlannerCode'); // Check of het pad klopt
+
+app.use(redirectRoute);
+app.use(getPlannerCodeRoute);
 
 // Verbind met MongoDB
 mongoose.connect(process.env.MONGO_URI)
@@ -192,6 +201,35 @@ app.use((err, req, res, next) => {
         stack: err.stack
     });
 });
+
+const router = express.Router();
+
+router.get('/redirect', (req, res) => {
+    const code = req.query.code;
+
+    if (!code) {
+        return res.status(400).send("Geen code opgegeven.");
+    }
+
+    // Zet een HTTP cookie met de code (blijft 30 dagen geldig)
+    res.cookie('plannerCode', code, { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: false });
+
+    // Redirect naar de Google Play Store (vervang met jouw app-link)
+    res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
+});
+
+router.get('/getPlannerCode', (req, res) => {
+    const plannerCode = req.cookies.plannerCode;
+
+    if (!plannerCode) {
+        return res.send("Geen code gevonden");
+    }
+
+    res.send(plannerCode);
+});
+
+module.exports = router;
+
 
 // Start server
 const PORT = process.env.PORT || 5000;
