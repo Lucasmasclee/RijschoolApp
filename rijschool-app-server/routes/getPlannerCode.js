@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 
 router.get('/getPlannerCode', (req, res) => {
+    // Add cache control headers
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const plannerCode = req.cookies.plannerCode;
 
     if (!plannerCode) {

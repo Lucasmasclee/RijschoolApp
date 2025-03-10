@@ -186,23 +186,31 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
 
     IEnumerator CheckRedirectCode()
     {
-        UnityWebRequest request = UnityWebRequest.Get("https://rijschoolapp.onrender.com/redirect?code=planner7");
+        // Add timestamp to prevent caching
+        string url = $"https://rijschoolapp.onrender.com/getPlannerCode?t={DateTime.Now.Ticks}";
+        UnityWebRequest request = UnityWebRequest.Get(url);
+        
+        // Add no-cache headers
+        request.SetRequestHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        request.SetRequestHeader("Pragma", "no-cache");
+        request.SetRequestHeader("Expires", "0");
+        
         yield return request.SendWebRequest();
 
         if (request.result == UnityWebRequest.Result.Success)
         {
-            string code = request.downloadHandler.text.ToLower();
-            PlayerPrefs.SetString("plannerCode", code);
-            UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
-            if(validPasswords.Contains(code))
+            string code = request.downloadHandler.text;
+            if (!code.Contains("<!doctype") && !code.Contains("<html"))
             {
-                PlayerPrefs.SetInt("LeraarVerified", 1);
+                code = code.ToLower();
+                PlayerPrefs.SetString("plannerCode", code);
+                UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
+                if(validPasswords.Contains(code))
+                {
+                    PlayerPrefs.SetInt("LeraarVerified", 1);
+                }
+                Debug.Log("PlannerCode opgeslagen bij start: " + code);
             }
-            Debug.Log("PlannerCode opgeslagen bij start: " + code);
-        }
-        else
-        {
-            //Debug.LogError("Fout bij ophalen redirect code: " + request.error);
         }
         leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
     }
