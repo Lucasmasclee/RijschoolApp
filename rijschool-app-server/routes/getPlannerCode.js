@@ -8,7 +8,12 @@ router.get('/getPlannerCode', (req, res) => {
         return res.send("Geen code gevonden");
     }
 
-    res.send(plannerCode);
+    // Validate that we're not sending HTML content
+    if (typeof plannerCode === 'string' && plannerCode.length < 100 && !plannerCode.includes('<')) {
+        res.send(plannerCode);
+    } else {
+        res.send("Ongeldige code gevonden");
+    }
 });
 
 module.exports = router;
