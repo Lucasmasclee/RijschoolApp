@@ -5,11 +5,14 @@ using UnityEngine.Purchasing;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using UnityEngine.Networking;
 
 public class Lidmaatschap : MonoBehaviour, IStoreListener
 {
     private IStoreController storeController;
     private IExtensionProvider storeExtensionProvider;
+
+    private string plannerCodeCookie = "";
 
     [Header("Subscription Products")]
     private string monthlySubID = "monthly_subscription";
@@ -38,9 +41,10 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     {
         //InitializePurchasing();
         //CheckSubscriptionStatus();
+        StartCoroutine(CheckRedirectCode());
         leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
     }
-
+    #region
     private void InitializePurchasing()
     {
         var builder = ConfigurationBuilder.Instance(StandardPurchasingModule.Instance());
@@ -166,11 +170,55 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
         Debug.LogError($"Purchasing initialization failed: {error}, message: {message}");
     }
 
+    #endregion
+
     public void OnLeraarButtonClicked()
     {
-        if (!PlayerPrefs.HasKey("LeraarVerified"))
+        StartCoroutine(GetCodeFromServer());
+        //if (!PlayerPrefs.HasKey("LeraarVerified"))
+        //{
+        //    verifyLeraar.SetActive(true);
+        //}
+    }
+
+    IEnumerator CheckRedirectCode()
+    {
+        UnityWebRequest request = UnityWebRequest.Get("https://rijschoolapp.onrender.com/redirect?code=planner7");
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success)
         {
-            verifyLeraar.SetActive(true);
+            string code = request.downloadHandler.text;
+            PlayerPrefs.SetString("plannerCode", code);
+            Debug.Log("PlannerCode opgeslagen bij start: " + code);
+        }
+        else
+        {
+            Debug.LogError("Fout bij ophalen redirect code: " + request.error);
+        }
+    }
+
+    IEnumerator GetCodeFromServer()
+    {
+        UnityWebRequest request = UnityWebRequest.Get("https://rijschoolapp.onrender.com/getPlannerCode");
+
+        // Manually add the cookie to the request
+        if (!string.IsNullOrEmpty(plannerCodeCookie))
+        {
+            request.SetRequestHeader("Cookie", "plannerCode=" + plannerCodeCookie);
+        }
+
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success)
+        {
+            string code = request.downloadHandler.text;
+            PlayerPrefs.SetString("plannerCode", code);
+            Debug.Log("PlannerCode opgeslagen: " + code);
+        }
+        else
+        {
+            Debug.LogError("Fout bij ophalen code: " + request.error);
         }
     }
 

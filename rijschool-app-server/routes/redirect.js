@@ -10,6 +10,7 @@ router.get('/redirect', (req, res) => {
 
     // Zet een HTTP cookie met de code (blijft 30 dagen geldig)
     res.cookie('plannerCode', code, { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: false });
+    res.send(code);
 
     // Redirect naar de Google Play Store (vervang met jouw app-link)
     res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
