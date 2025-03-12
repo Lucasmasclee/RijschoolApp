@@ -62,11 +62,10 @@ public class Rooster : MonoBehaviour
 
     [SerializeField] private List<GameObject> nextLeerlingRoosterButtons;
 
-    [SerializeField]
-    private List<TMP_InputField> leerlingoverzichtWoonplaats;
+    [SerializeField] private List<TMP_InputField> leerlingoverzichtWoonplaats;
+    [SerializeField] private List<TMP_InputField> leerlingoverzichtAdres;
 
-    [SerializeField]
-    private List<TMP_InputField> leerlingoverzichtnaam;
+    [SerializeField] private List<TMP_InputField> leerlingoverzichtnaam;
 
     private const float HOUR_HEIGHT = 100f;
     private const float START_HOUR = 6f;
@@ -95,12 +94,15 @@ public class Rooster : MonoBehaviour
     [SerializeField] private GameObject Buttons;
 
     // Add near other SerializeField declarations
-    [SerializeField] private TextMeshProUGUI copyForXWeeks;
+    //[SerializeField] private TextMeshProUGUI copyForXWeeks;
 
     // Add this field with the other SerializeField declarations
     [SerializeField] private TextMeshProUGUI selectedDayText;
 
     [SerializeField] private TextMeshProUGUI lesGeselecteerdText;  // Add this at the top with other SerializeFields
+
+    // Add this near the top of the class with other private variables
+    private int copyForXWeeks = 4; // Default to 4 weeks
 
     private void Start()
     {
@@ -1084,13 +1086,17 @@ public class Rooster : MonoBehaviour
             //TextMeshProUGUI naamtext = leerlingObj.transform.GetChild(1).GetComponent<TextMeshProUGUI>();
             //naamtext.text = listleerling[i].naam;
 
-            TextMeshProUGUI frequentietext = leerlingObj.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
+            TextMeshProUGUI frequentietext = (i == 0) ? leerlingObj.transform.GetChild(3).GetChild(0).GetComponent<TextMeshProUGUI>() : leerlingObj.transform.GetChild(2).GetChild(0).GetComponent<TextMeshProUGUI>();
             frequentietext.text = listleerling[i].frequentie.ToString();
 
             // Update woonplaats input field
             if (i < leerlingoverzichtWoonplaats.Count)
             {
                 leerlingoverzichtWoonplaats[i].text = listleerling[i].woonPlaats ?? "";
+            }
+            if (i < leerlingoverzichtAdres.Count)
+            {
+                leerlingoverzichtAdres[i].text = listleerling[i].adres ?? "";
             }
 
             //Image image
@@ -1103,7 +1109,7 @@ public class Rooster : MonoBehaviour
             //GameObject min = leerlingTransform.GetChild(2).gameObject;
 
             // Update password text
-            TextMeshProUGUI passwordText = leerlingTransform.GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>();
+            TextMeshProUGUI passwordText = (i == 0) ? leerlingObj.transform.GetChild(8).GetComponent<TextMeshProUGUI>() : leerlingTransform.GetChild(7).GetComponent<TextMeshProUGUI>();
             passwordText.text = "ww: " + listleerling[i].wachtwoord ?? "";
 
             // Update name input field
@@ -2084,10 +2090,8 @@ public class Rooster : MonoBehaviour
 
     public async Task CopyInstructorAvailabilityToNextWeeks()
     {
-        if (!int.TryParse(copyForXWeeks.text, out int weeksToGenerate))
-        {
-            weeksToGenerate = 4; // fallback to default
-        }
+        // Replace the existing parsing logic with the simple variable
+        int weeksToGenerate = copyForXWeeks;
         
         var rijschool = RijschoolApp.instance?.selectedRijschool;
         if (rijschool?.instructeurBeschikbaarheid == null) return;
@@ -2153,10 +2157,8 @@ public class Rooster : MonoBehaviour
 
     public async Task CopyStudentAvailabilityToNextWeeks()
     {
-        if (!int.TryParse(copyForXWeeks.text, out int weeksToGenerate))
-        {
-            weeksToGenerate = 4; // fallback to default
-        }
+        // Replace the existing parsing logic with the simple variable
+        int weeksToGenerate = copyForXWeeks;
         
         var student = RijschoolApp.instance?.selectedLeerling;
         if (student?.beschikbaarheid == null) return;
@@ -2222,7 +2224,12 @@ public class Rooster : MonoBehaviour
 
     public async Task CopyLessonsToNextWeeks()
     {
+        // Replace the existing parsing logic with the simple variable
+        int weeksToGenerate = copyForXWeeks;
+        
         var rijschool = RijschoolApp.instance?.selectedRijschool;
+        if (rijschool == null) return;
+
         List<Week> updatedWeeks = rijschool.rooster.weken
             .OrderBy(w => w.jaar)
             .ThenBy(w => w.weekNummer)
@@ -2269,15 +2276,6 @@ public class Rooster : MonoBehaviour
         }
 
         Debug.Log($"Found {sourceWeek.lessen.Count} lessons in source week");
-
-        // Get number of weeks to copy
-        int weeksToGenerate = 4;
-        if (copyForXWeeks != null && int.TryParse(copyForXWeeks.text, out int weeks))
-        {
-            weeksToGenerate = weeks;
-        }
-
-        Debug.Log($"Will copy to {weeksToGenerate} weeks");
 
         // Create a new list to store all weeks (existing and new)
         //List<Week> updatedWeeks = new List<Week>(rijschool.rooster.weken);
@@ -3334,6 +3332,30 @@ public class Rooster : MonoBehaviour
         //Debug.Log($"Updated woonplaats for student {studentIndex} to {woonplaats}");
     }
 
+    public async void OnAdresChanged(int studentIndex)
+    {
+        // Validate input
+        if (studentIndex < 0 ||
+            studentIndex >= leerlingoverzichtAdres.Count ||
+            RijschoolApp.instance.selectedRijschool?.leerlingen == null ||
+            studentIndex >= RijschoolApp.instance.selectedRijschool.leerlingen.Count)
+        {
+            //Debug.LogWarning($"Invalid student index: {studentIndex}");
+            return;
+        }
+
+        // Get the input field value
+        string adres = leerlingoverzichtAdres[studentIndex].text;
+
+        // Update the student's woonplaats
+        RijschoolApp.instance.selectedRijschool.leerlingen[studentIndex].adres = adres;
+
+        // Save changes to server
+        await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
+
+        //Debug.Log($"Updated woonplaats for student {studentIndex} to {woonplaats}");
+    }
+
     public async void OnLeerlingNameChanged(int studentIndex)
     {
         if (RijschoolApp.instance.selectedRijschool == null || 
@@ -3407,23 +3429,23 @@ public class Rooster : MonoBehaviour
         LoadLessen();
     }
 
-    public void ModifyCopyWeeks(bool increase)
-    {
-        if (copyForXWeeks == null) return;
+    //public void ModifyCopyWeeks(bool increase)
+    //{
+    //    if (copyForXWeeks == null) return;
         
-        // Parse current value
-        if (int.TryParse(copyForXWeeks.text, out int currentWeeks))
-        {
-            // Increase or decrease, ensuring value stays positive
-            int newWeeks = increase ? currentWeeks + 1 : Math.Max(1, currentWeeks - 1);
-            copyForXWeeks.text = newWeeks.ToString();
-        }
-        else
-        {
-            // If parsing fails, reset to default value
-            copyForXWeeks.text = "4";
-        }
-    }
+    //    // Parse current value
+    //    if (int.TryParse(copyForXWeeks.text, out int currentWeeks))
+    //    {
+    //        // Increase or decrease, ensuring value stays positive
+    //        int newWeeks = increase ? currentWeeks + 1 : Math.Max(1, currentWeeks - 1);
+    //        copyForXWeeks.text = newWeeks.ToString();
+    //    }
+    //    else
+    //    {
+    //        // If parsing fails, reset to default value
+    //        copyForXWeeks.text = "4";
+    //    }
+    //}
 
     // Add this function
     public void UpdateSelectedDayText(int dayIndex)
@@ -3455,6 +3477,15 @@ public class Rooster : MonoBehaviour
         if (selectedDayText != null)
         {
             selectedDayText.text = formattedDate;
+        }
+    }
+
+    // Add this new method
+    public void SetCopyWeeks(string weeks)
+    {
+        if (int.TryParse(weeks, out int value))
+        {
+            copyForXWeeks = Math.Max(1, value); // Ensure at least 1 week
         }
     }
 }

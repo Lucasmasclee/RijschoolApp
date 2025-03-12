@@ -44,6 +44,7 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
         if(!PlayerPrefs.HasKey("LeraarVerified"))
         {
             StartCoroutine(CheckRedirectCode());
+            StartCoroutine(GetCodeFromServer());
         }
         leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
     }
@@ -188,6 +189,7 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     {
         // Add timestamp to prevent caching
         string url = $"https://rijschoolapp.onrender.com/getPlannerCode?t={DateTime.Now.Ticks}";
+        //url = $"https://rijschoolapp.onrender.com/getPlannerCode";
         UnityWebRequest request = UnityWebRequest.Get(url);
         
         // Add no-cache headers

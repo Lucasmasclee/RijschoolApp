@@ -52,6 +52,7 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private TextMeshProUGUI voegLeerlingToeFrequentie;
     [SerializeField] private TMP_InputField voegLeerlingToeMinutesPerLes;
     [SerializeField] private TMP_InputField voegLeerlingToeWoonplaats;
+    [SerializeField] private TMP_InputField voegLeerlingToeAdres;
     [SerializeField] private Transform rijscholenUIParent;
     [SerializeField] private List<GameObject> leerlingenPool;
     [SerializeField] private GameObject nogGeenRijschoolWaarschuwing;
@@ -402,7 +403,8 @@ public class RijschoolApp : MonoBehaviour
                 colorIndex = GetNextAvailableColorIndex(),
                 minutesPerLes = minutesPerLes,
                 wachtwoord = uniquePassword,
-                woonPlaats = voegLeerlingToeWoonplaats.text // Set the woonplaats from the input field
+                woonPlaats = voegLeerlingToeWoonplaats.text, // Set the woonplaats from the input field
+                adres = voegLeerlingToeAdres.text
             };
             
             if (selectedRijschool.leerlingen == null)
@@ -504,6 +506,7 @@ public class RijschoolApp : MonoBehaviour
         selectedRijschool.beschrijving = description;
         selectedRijschool.woonPlaats = woonplaats;
         selectedRijschool.wachtwoord = password;
+        selectedRijschool.LLzienLessen = false;  // Default value
 
         string jsonData = JsonUtility.ToJson(selectedRijschool);
 
@@ -1063,6 +1066,7 @@ public class Leerling
     public int minutesPerLes = 60;
     public List<Beschikbaarheid> beschikbaarheid;
     public string woonPlaats;
+    public string adres;  // New field
     public string wachtwoord;
 
     public Leerling()
@@ -1097,20 +1101,21 @@ public class Les
 {
     public string begintijd;
     public string eindtijd;
-    public string notities;
-    public string datum;        // Format: "dd-MM-yyyy"
-    public int weekNummer;      // 1-52
-    public string leerlingId;   
+    public string notities = "";  // Modified to have default value
+    public string datum;
+    public int weekNummer;
+    public string leerlingId;
     public string leerlingNaam;
     public bool isAutomatischGepland;
-    public List<Leerling> gereserveerdDoorLeerling; // New property for student reservations
-    
+    public List<Leerling> gereserveerdDoorLeerling;
+
     public Les()
     {
         System.DateTime now = System.DateTime.Now;
         datum = now.ToString("dd-MM-yyyy");
         weekNummer = System.Globalization.ISOWeek.GetWeekOfYear(now);
         gereserveerdDoorLeerling = new List<Leerling>();
+        notities = "";  // Initialize empty notes
     }
 }
 
@@ -1174,6 +1179,7 @@ public class Rijschool
     public string beschrijving;
     public string wachtwoord;
     public string woonPlaats;
+    public bool LLzienLessen;  // New field
     public List<Leerling> leerlingen;
     public LesRooster rooster;
     public List<Beschikbaarheid> instructeurBeschikbaarheid;
@@ -1183,5 +1189,6 @@ public class Rijschool
         leerlingen = new List<Leerling>();
         rooster = new LesRooster();
         instructeurBeschikbaarheid = new List<Beschikbaarheid>();
+        LLzienLessen = false;  // Default value
     }
 }

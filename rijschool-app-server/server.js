@@ -33,7 +33,7 @@ mongoose.connect(process.env.MONGO_URI)
 const LesSchema = new mongoose.Schema({
     begintijd: { type: String, required: true },
     eindtijd: { type: String, required: true },
-    notities: { type: String },
+    notities: { type: String, default: "" },
     datum: { type: String, required: true },  // Format: "dd-MM-yyyy"
     weekNummer: { type: Number, required: true },
     leerlingId: { type: String },  // Reference to student
@@ -77,8 +77,9 @@ const LeerlingSchema = new mongoose.Schema({
     colorIndex: { type: Number, required: true },
     minutesPerLes: { type: Number, default: 60 },
     beschikbaarheid: [BeschikbaarheidSchema],
-    woonPlaats: { type: String },  // New field
-    wachtwoord: { type: String }   // New field
+    woonPlaats: { type: String },
+    adres: { type: String },  // New field
+    wachtwoord: { type: String }
 });
 
 // Rijschool Schema
@@ -86,7 +87,8 @@ const RijschoolSchema = new mongoose.Schema({
     naam: { type: String, required: true },
     beschrijving: { type: String },
     wachtwoord: { type: String, required: true },
-    woonPlaats: { type: String },  // New field
+    woonPlaats: { type: String },
+    LLzienLessen: { type: Boolean, default: false },  // New field
     leerlingen: [LeerlingSchema],
     rooster: {
         weken: [{
