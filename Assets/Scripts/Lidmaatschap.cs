@@ -7,6 +7,9 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using UnityEngine.Networking;
 
+using Ugi.PlayInstallReferrerPlugin;
+//using Google.Play.InstallReferrer;
+
 public class Lidmaatschap : MonoBehaviour, IStoreListener
 {
     private IStoreController storeController;
@@ -37,15 +40,24 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     private bool isSubscribed = false;
     private List<string> validPasswords = new List<string>() { "planner2", "planner3", "planner4", "planner5", "planner6", "planner7", "planner8", "planner9", "planner10", "planner11", "planner12", "planner13", "planner14", "planner15", "planner16", "planner17", "planner18", "planner19", "planner20", }; // You should populate this with valid passwords
 
+    public string urlllllll;
     private void Start()
     {
-        //InitializePurchasing();
-        //CheckSubscriptionStatus();
-        if (!PlayerPrefs.HasKey("LeraarVerified"))
+        PlayInstallReferrer.GetInstallReferrerInfo((installReferrerDetails) =>
         {
-            StartCoroutine(CheckRedirectCode());
-        }
-        leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
+            if (installReferrerDetails.Error == null)
+            {
+                string referrer = installReferrerDetails.InstallReferrer;
+                Debug.Log("Referrer: " + referrer);
+
+                // Send the referrer (planner code) to Unity Analytics
+                UnityAnalyticsManager.Instance.InstructeurcodeQRCode(referrer);
+            }
+            else
+            {
+                Debug.LogError("Failed to retrieve referrer");
+            }
+        });
     }
     #region
     private void InitializePurchasing()
@@ -178,6 +190,7 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     public void OnLeraarButtonClicked()
     {
         //StartCoroutine(GetCodeFromServer());
+        StartCoroutine(CheckRedirectCode());
         if (!PlayerPrefs.HasKey("LeraarVerified"))
         {
             verifyLeraar.SetActive(true);
@@ -186,7 +199,9 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
 
     IEnumerator CheckRedirectCode()
     {
-        string url = $"https://rijschoolapp.onrender.com/getPlannerCode?t={DateTime.Now.Ticks}";
+        print("checking redirect code");
+        //string url = $"https://rijschoolapp.onrender.com/getPlannerCode?t={DateTime.Now.Ticks}";
+        string url = urlllllll;
         UnityWebRequest request = UnityWebRequest.Get(url);
 
         // Add no-cache headers
@@ -203,8 +218,7 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
             UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
             if (!code.Contains("<!doctype") && !code.Contains("<html"))
             {
-                PlayerPrefs.SetInt("LeraarVerified", 1);
-                PlayerPrefs.SetString("plannerCode", code);
+                //PlayerPrefs.SetString("plannerCode", code);
                 UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
                 if (validPasswords.Contains(code))
                 {
@@ -218,31 +232,33 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
             // Debug.LogError("Fout bij ophalen redirect code: " + request.error);
         }
         leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
+        print("done checking redirect code");
+
     }
 
-    IEnumerator GetCodeFromServer()
-    {
-        UnityWebRequest request = UnityWebRequest.Get("https://rijschoolapp.onrender.com/getPlannerCode");
+    //IEnumerator GetCodeFromServer()
+    //{
+    //    UnityWebRequest request = UnityWebRequest.Get("https://rijschoolapp.onrender.com/getPlannerCode");
 
-        // Manually add the cookie to the request
-        if (!string.IsNullOrEmpty(plannerCodeCookie))
-        {
-            request.SetRequestHeader("Cookie", "plannerCode=" + plannerCodeCookie);
-        }
+    //    // Manually add the cookie to the request
+    //    if (!string.IsNullOrEmpty(plannerCodeCookie))
+    //    {
+    //        request.SetRequestHeader("Cookie", "plannerCode=" + plannerCodeCookie);
+    //    }
 
-        yield return request.SendWebRequest();
+    //    yield return request.SendWebRequest();
 
-        if (request.result == UnityWebRequest.Result.Success)
-        {
-            string code = request.downloadHandler.text;
-            PlayerPrefs.SetString("plannerCode", code);
-            Debug.Log("PlannerCode opgeslagen: " + code);
-        }
-        else
-        {
-            Debug.LogError("Fout bij ophalen code: " + request.error);
-        }
-    }
+    //    if (request.result == UnityWebRequest.Result.Success)
+    //    {
+    //        string code = request.downloadHandler.text;
+    //        PlayerPrefs.SetString("plannerCode", code);
+    //        Debug.Log("PlannerCode opgeslagen: " + code);
+    //    }
+    //    else
+    //    {
+    //        Debug.LogError("Fout bij ophalen code: " + request.error);
+    //    }
+    //}
 
     public void CheckPassword()
     {
