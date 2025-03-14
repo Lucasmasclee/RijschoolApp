@@ -13,7 +13,8 @@ router.get('/redirect', (req, res) => {
         maxAge: 30 * 24 * 60 * 60 * 1000, 
         httpOnly: false,
         sameSite: 'lax',  // Adjust as needed
-        secure: false     // Set to true if using HTTPS
+        secure: false,     // Set to true if using HTTPS
+        domain: 'rijschool.nl'
     });
     
     res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
