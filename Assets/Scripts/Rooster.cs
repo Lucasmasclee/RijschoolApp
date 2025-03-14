@@ -104,6 +104,16 @@ public class Rooster : MonoBehaviour
     // Add this near the top of the class with other private variables
     private int copyForXWeeks = 4; // Default to 4 weeks
 
+    // Add near the top with other SerializeField declarations
+    [SerializeField] private Button MapsExtensie;
+
+    // Add this with other SerializeField declarations at the top
+    [SerializeField] private GameObject LLKanLessenZienTrue;
+
+    // Add this with other SerializeField declarations at the top
+    [SerializeField] private List<TMP_InputField> studentLesInputFields;
+    [SerializeField] private GameObject Leerlingbekijktles;
+
     private void Start()
     {
         selectedWeek = 0;
@@ -158,6 +168,13 @@ public class Rooster : MonoBehaviour
         currentWeek = System.Globalization.ISOWeek.GetWeekOfYear(System.DateTime.Now);
         
         UpdateWeekDisplay();
+
+        // Add this to initialize the GameObject's visibility
+        if (LLKanLessenZienTrue != null)
+        {
+            LLKanLessenZienTrue.SetActive(PlayerPrefs.GetInt("LLKanLessenZien") == 1);
+        }
+        //LoadLessen(true);
     }
 
     private void UpdateWeekDisplay()
@@ -432,7 +449,7 @@ public class Rooster : MonoBehaviour
         //System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
         //monday = monday.AddDays(7 * selectedWeek);
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
-        print("Weeknum: " + weekNum);
+        //print("Weeknum: " + weekNum);
 
         // Find the week in the rooster
         Week targetWeek = rijschool.rooster.weken.FirstOrDefault(w => w.weekNummer == weekNum);
@@ -466,16 +483,21 @@ public class Rooster : MonoBehaviour
                 GameObject lesObject = lesPool[poolIndex];
                 poolIndex++;
 
-                // Set parent to correct lessons parent for this day
                 lesObject.transform.SetParent(lessenParents[dayIndex]);  // Using new parent
 
-                // Calculate position and size
                 var (yPos, height) = CalculateTimeSlotTransform(les.begintijd, les.eindtijd);
                 
-                // Set local position and size
                 RectTransform rectTransform = lesObject.GetComponent<RectTransform>();
-                rectTransform.localPosition = new Vector3(LESSON_X_POSITION, yPos, 0);
-                rectTransform.sizeDelta = new Vector2(LESSON_WIDTH - (LESSON_MARGIN * 1), height);
+
+                float newLessonWidth = lessenParents[dayIndex].parent.parent.GetComponent<RectTransform>().rect.width;
+                rectTransform.sizeDelta = new Vector2(newLessonWidth, height);
+                rectTransform.localPosition = new Vector3((newLessonWidth/2f), yPos, 0);
+
+                //RectTransform text1 = lesObject.transform.GetChild(0).GetComponent<RectTransform>();
+                //RectTransform text2 = lesObject.transform.GetChild(1).GetComponent<RectTransform>();
+                //text1.sizeDelta = new Vector2(text1.sizeDelta.x, rectTransform.sizeDelta.y / 2);
+                //text2.sizeDelta = new Vector2(text2.sizeDelta.x, rectTransform.sizeDelta.y / 2);
+
 
                 // Set the color for all lessons to the same base color
                 Image lesImage = lesObject.GetComponent<Image>();
@@ -597,17 +619,6 @@ public class Rooster : MonoBehaviour
             return;
         }
 
-        // Debug log the available slots
-        foreach (var availability in availabilityList)
-        {
-            //Debug.Log($"Available slots for {userType} {userName} on {availability.dag}: " +
-            //         $"Week {availability.weekNummer}, Year {availability.jaar}");
-            foreach (var slot in availability.tijdslots)
-            {
-                //Debug.Log($"- Slot: {slot.startTijd} - {slot.eindTijd}");
-            }
-        }
-
         // For each day
         for (int dagIndex = 0; dagIndex < dagenScrollview.Count; dagIndex++)
         {
@@ -640,8 +651,14 @@ public class Rooster : MonoBehaviour
                     
                     // Set local position and size
                     RectTransform rectTransform = lesObject.GetComponent<RectTransform>();
-                    rectTransform.localPosition = new Vector3(LESSON_X_POSITION, yPos, 0);
-                    rectTransform.sizeDelta = new Vector2(LESSON_WIDTH, height);
+                    
+                    float xwidth = lesObject.transform.parent.parent.parent.GetComponent<RectTransform>().rect.width;
+                    rectTransform.sizeDelta = new Vector2(xwidth, height);
+                    rectTransform.localPosition = new Vector3((xwidth/2), yPos, 0);
+                    //RectTransform text1 = lesObject.transform.GetChild(0).GetComponent<RectTransform>();
+                    //RectTransform text2 = lesObject.transform.GetChild(1).GetComponent<RectTransform>();
+                    //text1.sizeDelta = new Vector2(text1.sizeDelta.x, rectTransform.sizeDelta.y / 2);
+                    //text2.sizeDelta = new Vector2(text2.sizeDelta.x, rectTransform.sizeDelta.y / 2);
 
                     // Set the color and text properties
                     Image lesImage = lesObject.GetComponent<Image>();
@@ -680,6 +697,104 @@ public class Rooster : MonoBehaviour
         if (roosterInstructor && loadLessons)
         {
             LoadLessen(false); // Pass false to prevent recursive call
+        }
+
+        UpdateNextLeerlingRoosterButtonsVisibility();
+
+        // Update week offset text at the end of the method
+        UpdateWeekOffsetText();
+
+        // After displaying availability slots, check if we should show lessons for students
+        if (!roosterInstructor && 
+            RijschoolApp.instance?.selectedRijschool?.LLzienLessen == true && 
+            RijschoolApp.instance.selectedLeerling != null)
+        {
+            var targetWeek = RijschoolApp.instance.selectedRijschool.rooster?.weken?
+                .FirstOrDefault(w => w.weekNummer == weekNum && w.jaar == year);
+
+            if (targetWeek?.lessen != null)
+            {
+                string currentStudentName = RijschoolApp.instance.selectedLeerling.naam;
+
+                // Filter lessons for the current student
+                var studentLessons = targetWeek.lessen
+                    .Where(l => l.leerlingNaam == currentStudentName ||
+                               (l.gereserveerdDoorLeerling?.Any(gl => gl.naam == currentStudentName) ?? false))
+                    .ToList();
+
+                // Get the next available pool index
+                poolIndex = GetNextAvailablePoolIndex();
+
+                foreach (var les in studentLessons)
+                {
+                    if (poolIndex >= lesPool.Count)
+                    {
+                        Debug.LogWarning("Not enough lesson objects in pool!");
+                        break;
+                    }
+
+                    // Convert date to day name
+                    System.DateTime lesDate = System.DateTime.ParseExact(les.datum, "dd-MM-yyyy", null);
+                    string dayName = lesDate.ToString("dddd");
+                    int dayIndex = GetDayIndex(dayName);
+
+                    if (dayIndex >= 0 && dayIndex < lessenParents.Count)
+                    {
+                        GameObject lesObject = lesPool[poolIndex];
+                        poolIndex++;
+
+                        // Set parent to correct lessons parent for this day
+                        lesObject.transform.SetParent(lessenParents[dayIndex]);
+
+                        // Calculate position and size
+                        var (yPos, height) = CalculateTimeSlotTransform(les.begintijd, les.eindtijd);
+
+                        // Set local position and size
+                        RectTransform rectTransform = lesObject.GetComponent<RectTransform>();
+                        
+
+                        // Calculate the new width based on the grandparent's width
+                        float newLessonWidth = lessenParents[dayIndex].parent.parent.parent.GetComponent<RectTransform>().rect.width;
+                        rectTransform.sizeDelta = new Vector2(newLessonWidth, height);
+                        rectTransform.localPosition = new Vector3((newLessonWidth/2), yPos, 0);
+                        //RectTransform text1 = lesObject.transform.GetChild(0).GetComponent<RectTransform>();
+                        //RectTransform text2 = lesObject.transform.GetChild(1).GetComponent<RectTransform>();
+                        //text1.sizeDelta = new Vector2(text1.sizeDelta.x, rectTransform.sizeDelta.y / 2);
+                        //text2.sizeDelta = new Vector2(text2.sizeDelta.x, rectTransform.sizeDelta.y / 2);
+
+
+                        // Set a different color for student-visible lessons
+                        Image lesImage = lesObject.GetComponent<Image>();
+                        lesImage.color = new Color(0.4f, 0.6f, 0.8f, 0.8f); // Light blue, semi-transparent
+
+                        // Update text components
+                        TextMeshProUGUI[] texts = lesObject.GetComponentsInChildren<TextMeshProUGUI>();
+                        foreach (var text in texts)
+                        {
+                            if (text != null)
+                            {
+                                text.color = LESSON_TEXT_COLOR;
+                                text.fontStyle = FontStyles.Bold;
+                            }
+                        }
+
+                        texts[0].text = $"{les.begintijd} - {les.eindtijd}";
+                        texts[1].text = les.leerlingNaam ?? "";
+                        //texts[1].text = les.notities ?? "";
+
+                        // Add click event listener
+                        Button button = lesObject.GetComponent<Button>();
+                        if (button != null)
+                        {
+                            button.onClick.RemoveAllListeners();
+                            Les currentLes = les;
+                            button.onClick.AddListener(() => OnLesSelected(currentLes));
+                        }
+
+                        lesObject.SetActive(true);
+                    }
+                }
+            }
         }
 
         UpdateNextLeerlingRoosterButtonsVisibility();
@@ -727,8 +842,10 @@ public class Rooster : MonoBehaviour
             instructorTexts[1].text = "Instructeur beschikbaar";
 
             // Set input field values
-            TMP_InputField startTimeInput = instructorLes.transform.GetChild(2).GetComponent<TMP_InputField>();
-            TMP_InputField endTimeInput = instructorLes.transform.GetChild(3).GetComponent<TMP_InputField>();
+            //TextMeshProUGUI NotitiesInput = instructorLes.transform.GetChild(2).GetComponent<TextMeshProUGUI>();
+            TMP_InputField startTimeInput = instructorLes.transform.GetChild(3).GetComponent<TMP_InputField>();
+            TMP_InputField endTimeInput = instructorLes.transform.GetChild(4).GetComponent<TMP_InputField>();
+            //NotitiesInput.text = "";
             startTimeInput.text = startTime;
             endTimeInput.text = endTime;
         }
@@ -745,10 +862,20 @@ public class Rooster : MonoBehaviour
             studentTexts[1].text = $"{RijschoolApp.instance.selectedLeerling.naam} beschikbaar";
 
             // Set input field values
-            TMP_InputField startTimeInput = studentLes.transform.GetChild(2).GetComponent<TMP_InputField>();
-            TMP_InputField endTimeInput = studentLes.transform.GetChild(3).GetComponent<TMP_InputField>();
+            TMP_InputField startTimeInput = studentLes.transform.GetChild(3).GetComponent<TMP_InputField>();
+            TMP_InputField endTimeInput = studentLes.transform.GetChild(4).GetComponent<TMP_InputField>();
             startTimeInput.text = startTime;
             endTimeInput.text = endTime;
+
+            // Make all student input fields interactable when viewing an available timeslot
+            foreach (var inputField in studentLesInputFields)
+            {
+                if (inputField != null)
+                {
+                    inputField.interactable = true;
+                }
+            }
+            Leerlingbekijktles.SetActive(false);
         }
 
         //Debug.Log($"Selected availability slot: {selectedDag} {startTime} - {endTime} for {(roosterInstructor ? "Instructor" : RijschoolApp.instance.selectedLeerling?.naam)}");
@@ -772,14 +899,15 @@ public class Rooster : MonoBehaviour
             foreach (GameObject detailLes in new[] { instructorLes, studentLes })
             {
                 TextMeshProUGUI[] texts = detailLes.GetComponentsInChildren<TextMeshProUGUI>();
-                // texts[0].text = selectedLes.begintijd + " - " + selectedLes.eindtijd;  // Commented out as requested
                 texts[1].text = selectedLes.leerlingNaam ?? "";
 
-                // Get the input fields (assuming they are the 3rd and 4th child)
-                TMP_InputField startTimeInput = detailLes.transform.GetChild(2).GetComponent<TMP_InputField>();
-                TMP_InputField endTimeInput = detailLes.transform.GetChild(3).GetComponent<TMP_InputField>();
+                // Get the input fields
+                TMP_InputField NotitiesInput = detailLes.transform.GetChild(2).GetComponent<TMP_InputField>();
+                TMP_InputField startTimeInput = detailLes.transform.GetChild(3).GetComponent<TMP_InputField>();
+                TMP_InputField endTimeInput = detailLes.transform.GetChild(4).GetComponent<TMP_InputField>();
 
                 // Set the input field values
+                NotitiesInput.text = selectedLes.notities ?? "";
                 startTimeInput.text = selectedLes.begintijd;
                 endTimeInput.text = selectedLes.eindtijd;
             }
@@ -798,6 +926,17 @@ public class Rooster : MonoBehaviour
                 leerlingSelecteertLes.SetActive(true);
                 instructorLes.SetActive(false);
                 studentLes.SetActive(true);
+
+                // Make all student input fields not interactable when viewing a lesson
+                foreach (var inputField in studentLesInputFields)
+                {
+                    if (inputField != null)
+                    {
+                        inputField.interactable = false;
+                    }
+                }
+                Leerlingbekijktles.SetActive(true);
+
             }
         }
         else
@@ -825,6 +964,16 @@ public class Rooster : MonoBehaviour
                     leerlingSelecteertLes.SetActive(true);
                     instructorLes.SetActive(false);
                     studentLes.SetActive(true);
+
+                    // Make all student input fields interactable when viewing an available timeslot
+                    foreach (var inputField in studentLesInputFields)
+                    {
+                        if (inputField != null)
+                        {
+                            inputField.interactable = true;
+                        }
+                    }
+                    Leerlingbekijktles.SetActive(false);
                 }
 
                 selectedTimeSlot = new TimeSlotInfo
@@ -835,6 +984,8 @@ public class Rooster : MonoBehaviour
                 };
             }
         }
+
+        UpdateMapsButton();
     }
 
     private class TimeSlotInfo
@@ -900,6 +1051,8 @@ public class Rooster : MonoBehaviour
         selectedTimeSlot = null;
         instructeurSelecteertLes.SetActive(false);
         leerlingSelecteertLes.SetActive(false);
+
+        UpdateMapsButton(); // Add this line
     }
 
     public async Task VerwijderLes(int dagIndex)
@@ -1821,17 +1974,34 @@ public class Rooster : MonoBehaviour
     // Add this helper method to calculate position and size
     private (float yPosition, float height) CalculateTimeSlotTransform(string startTime, string endTime)
     {
-        // Convert times to hours (as float)
-        float startHour = ConvertTimeToHours(startTime);
-        float endHour = ConvertTimeToHours(endTime);
-        
-        // Calculate height (in pixels)
-        float height = (endHour - startHour) * HOUR_HEIGHT;
-        
-        // Calculate Y position
-        // Note: We subtract from 0 because Unity's Y axis goes up, but we want to go down
-        float yPosition = -((startHour - START_HOUR) * HOUR_HEIGHT + height / 2f);
-        
+        // Retrieve start and end times from PlayerPrefs
+        string defaultStartTime = PlayerPrefs.GetString("RoosterStartTime", "06:00");
+        string defaultEndTime = PlayerPrefs.GetString("RoosterEndTime", "22:00");
+
+        // Convert times to minutes
+        int startMinutes = TimeStringToMinutes(startTime);
+        int endMinutes = TimeStringToMinutes(endTime);
+        int defaultStartMinutes = TimeStringToMinutes(defaultStartTime);
+        int defaultEndMinutes = TimeStringToMinutes(defaultEndTime);
+
+        // Calculate total available minutes based on PlayerPrefs times
+        int totalAvailableMinutes = defaultEndMinutes - defaultStartMinutes;
+
+        // Calculate height (in pixels) based on the duration of the time slot
+        float height = (endMinutes - startMinutes) / (float)totalAvailableMinutes * 1580f;
+
+        // Calculate Y position based on PlayerPrefs start time
+        float yPosition = -((startMinutes - defaultStartMinutes) / (float)totalAvailableMinutes * 1580f + height / 2f);
+
+        // Debug statements to trace values
+        //Debug.Log($"Start Time: {startTime} ({startMinutes} minutes)");
+        //Debug.Log($"End Time: {endTime} ({endMinutes} minutes)");
+        //Debug.Log($"Default Start Time: {defaultStartTime} ({defaultStartMinutes} minutes)");
+        //Debug.Log($"Default End Time: {defaultEndTime} ({defaultEndMinutes} minutes)");
+        //Debug.Log($"Total Available Minutes: {totalAvailableMinutes}");
+        //Debug.Log($"Calculated Height: {height}");
+        //Debug.Log($"Calculated Y Position: {yPosition}");
+
         return (yPosition, height);
     }
 
@@ -2090,7 +2260,6 @@ public class Rooster : MonoBehaviour
 
     public async Task CopyInstructorAvailabilityToNextWeeks()
     {
-        // Replace the existing parsing logic with the simple variable
         int weeksToGenerate = copyForXWeeks;
         
         var rijschool = RijschoolApp.instance?.selectedRijschool;
@@ -2100,55 +2269,61 @@ public class Rooster : MonoBehaviour
         System.DateTime now = System.DateTime.Now;
         System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-
-        int sourceWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        int sourceWeekNum = ISOWeek.GetWeekOfYear(monday);
         int sourceYear = monday.Year;
 
-        // Get source week availability
+        // Get source week's availability
         var sourceAvailability = rijschool.instructeurBeschikbaarheid
             .Where(b => b.weekNummer == sourceWeekNum && b.jaar == sourceYear)
             .ToList();
 
-        if (!sourceAvailability.Any())
+        if (!sourceAvailability.Any()) return;
+
+        Debug.Log($"Source week {sourceWeekNum} has {sourceAvailability.Count} availability entries");
+
+        for (int i = 1; i <= weeksToGenerate; i++)
         {
-            Debug.Log("No availability found in source week");
-            return;
-        }
+            monday = monday.AddDays(7);
+            int targetWeekNum = ISOWeek.GetWeekOfYear(monday);
+            int targetYear = monday.Year;
 
-        // Copy to specified number of weeks
-        for (int weekOffset = 1; weekOffset <= weeksToGenerate; weekOffset++)
-        {
-            DateTime targetMonday = monday.AddDays(7 * weekOffset);
-            int targetWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(targetMonday);
-            int targetYear = targetMonday.Year;
+            // Remove any existing empty availability entries for the target week
+            rijschool.instructeurBeschikbaarheid.RemoveAll(b => 
+                b.weekNummer == targetWeekNum && 
+                b.jaar == targetYear && 
+                (b.tijdslots == null || b.tijdslots.Count == 0));
 
-            // Check if target week already has availability
-            bool hasExistingAvailability = rijschool.instructeurBeschikbaarheid
-                .Any(b => b.weekNummer == targetWeekNum && b.jaar == targetYear);
+            // Check if target week has any non-empty availability
+            bool weekHasAvailability = rijschool.instructeurBeschikbaarheid
+                .Any(b => b.weekNummer == targetWeekNum && 
+                         b.jaar == targetYear && 
+                         b.tijdslots != null && 
+                         b.tijdslots.Count > 0);
 
-            if (hasExistingAvailability)
+            Debug.Log($"Target week {targetWeekNum}: Has availability = {weekHasAvailability}");
+
+            if (!weekHasAvailability)
             {
-                Debug.Log($"Skipping week {targetWeekNum} as it already has availability");
-                continue;
-            }
-
-            // Copy availability to target week
-            foreach (var dayAvailability in sourceAvailability)
-            {
-                var newDayAvailability = new Beschikbaarheid
+                foreach (var availability in sourceAvailability)
                 {
-                    dag = dayAvailability.dag,
-                    weekNummer = targetWeekNum,
-                    jaar = targetYear,
-                    tijdslots = dayAvailability.tijdslots.Select(slot => new TimeSlot
+                    if (availability.tijdslots != null && availability.tijdslots.Count > 0)
                     {
-                        startTijd = slot.startTijd,
-                        eindTijd = slot.eindTijd
-                    }).ToList()
-                };
-                rijschool.instructeurBeschikbaarheid.Add(newDayAvailability);
+                        var newAvailability = new Beschikbaarheid
+                        {
+                            dag = availability.dag,
+                            weekNummer = targetWeekNum,
+                            jaar = targetYear,
+                            tijdslots = availability.tijdslots.Select(t => new TimeSlot
+                            {
+                                startTijd = t.startTijd,
+                                eindTijd = t.eindTijd
+                            }).ToList()
+                        };
+                        rijschool.instructeurBeschikbaarheid.Add(newAvailability);
+                        Debug.Log($"Added availability for day {availability.dag} in week {targetWeekNum}");
+                    }
+                }
             }
-            Debug.Log($"Copied availability to week {targetWeekNum}");
         }
 
         await RijschoolApp.instance.UpdateRijschool(rijschool);
@@ -2157,7 +2332,6 @@ public class Rooster : MonoBehaviour
 
     public async Task CopyStudentAvailabilityToNextWeeks()
     {
-        // Replace the existing parsing logic with the simple variable
         int weeksToGenerate = copyForXWeeks;
         
         var student = RijschoolApp.instance?.selectedLeerling;
@@ -2167,55 +2341,61 @@ public class Rooster : MonoBehaviour
         System.DateTime now = System.DateTime.Now;
         System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-
-        int sourceWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        int sourceWeekNum = ISOWeek.GetWeekOfYear(monday);
         int sourceYear = monday.Year;
 
-        // Get source week availability
+        // Get source week's availability
         var sourceAvailability = student.beschikbaarheid
             .Where(b => b.weekNummer == sourceWeekNum && b.jaar == sourceYear)
             .ToList();
 
-        if (!sourceAvailability.Any())
+        if (!sourceAvailability.Any()) return;
+
+        Debug.Log($"Source week {sourceWeekNum} has {sourceAvailability.Count} availability entries");
+
+        for (int i = 1; i <= weeksToGenerate; i++)
         {
-            Debug.Log("No availability found in source week");
-            return;
-        }
+            monday = monday.AddDays(7);
+            int targetWeekNum = ISOWeek.GetWeekOfYear(monday);
+            int targetYear = monday.Year;
 
-        // Copy to specified number of weeks
-        for (int weekOffset = 1; weekOffset <= weeksToGenerate; weekOffset++)
-        {
-            DateTime targetMonday = monday.AddDays(7 * weekOffset);
-            int targetWeekNum = System.Globalization.ISOWeek.GetWeekOfYear(targetMonday);
-            int targetYear = targetMonday.Year;
+            // Remove any existing empty availability entries for the target week
+            student.beschikbaarheid.RemoveAll(b => 
+                b.weekNummer == targetWeekNum && 
+                b.jaar == targetYear && 
+                (b.tijdslots == null || b.tijdslots.Count == 0));
 
-            // Check if target week already has availability
-            bool hasExistingAvailability = student.beschikbaarheid
-                .Any(b => b.weekNummer == targetWeekNum && b.jaar == targetYear);
+            // Check if target week has any non-empty availability
+            bool weekHasAvailability = student.beschikbaarheid
+                .Any(b => b.weekNummer == targetWeekNum && 
+                         b.jaar == targetYear && 
+                         b.tijdslots != null && 
+                         b.tijdslots.Count > 0);
 
-            if (hasExistingAvailability)
+            Debug.Log($"Target week {targetWeekNum}: Has availability = {weekHasAvailability}");
+
+            if (!weekHasAvailability)
             {
-                Debug.Log($"Skipping week {targetWeekNum} as it already has availability");
-                continue;
-            }
-
-            // Copy availability to target week
-            foreach (var dayAvailability in sourceAvailability)
-            {
-                var newDayAvailability = new Beschikbaarheid
+                foreach (var availability in sourceAvailability)
                 {
-                    dag = dayAvailability.dag,
-                    weekNummer = targetWeekNum,
-                    jaar = targetYear,
-                    tijdslots = dayAvailability.tijdslots.Select(slot => new TimeSlot
+                    if (availability.tijdslots != null && availability.tijdslots.Count > 0)
                     {
-                        startTijd = slot.startTijd,
-                        eindTijd = slot.eindTijd
-                    }).ToList()
-                };
-                student.beschikbaarheid.Add(newDayAvailability);
+                        var newAvailability = new Beschikbaarheid
+                        {
+                            dag = availability.dag,
+                            weekNummer = targetWeekNum,
+                            jaar = targetYear,
+                            tijdslots = availability.tijdslots.Select(t => new TimeSlot
+                            {
+                                startTijd = t.startTijd,
+                                eindTijd = t.eindTijd
+                            }).ToList()
+                        };
+                        student.beschikbaarheid.Add(newAvailability);
+                        Debug.Log($"Added availability for day {availability.dag} in week {targetWeekNum}");
+                    }
+                }
             }
-            Debug.Log($"Copied availability to week {targetWeekNum}");
         }
 
         await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
@@ -2224,166 +2404,83 @@ public class Rooster : MonoBehaviour
 
     public async Task CopyLessonsToNextWeeks()
     {
-        // Replace the existing parsing logic with the simple variable
         int weeksToGenerate = copyForXWeeks;
         
         var rijschool = RijschoolApp.instance?.selectedRijschool;
         if (rijschool == null) return;
 
-        List<Week> updatedWeeks = rijschool.rooster.weken
-            .OrderBy(w => w.jaar)
-            .ThenBy(w => w.weekNummer)
-            .ToList();
-        // Get source week info
+        // Get current week info
         System.DateTime now = System.DateTime.Now;
         System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
         int sourceWeekNum = ISOWeek.GetWeekOfYear(monday);
         int sourceYear = monday.Year;
 
-        Debug.Log($"Starting copy process from Week {sourceWeekNum}, Year {sourceYear}");
-
-        if (rijschool == null)
-        {
-            Debug.LogError("No rijschool selected");
-            return;
-        }
-
-        // Initialize rooster if null
+        // Initialize rooster if needed
         if (rijschool.rooster == null)
         {
             rijschool.rooster = new LesRooster();
         }
-        if (rijschool.rooster.weken == null)
-        {
-            rijschool.rooster.weken = new List<Week>();
-        }
 
-        // Find source week
+        // Get source week's lessons
         var sourceWeek = rijschool.rooster.weken
             .FirstOrDefault(w => w.weekNummer == sourceWeekNum && w.jaar == sourceYear);
 
-        if (sourceWeek == null)
-        {
-            Debug.LogError($"Source week not found for week {sourceWeekNum}");
-            return;
-        }
+        if (sourceWeek?.lessen == null || !sourceWeek.lessen.Any()) return;
 
-        if (sourceWeek.lessen == null || sourceWeek.lessen.Count == 0)
-        {
-            Debug.Log($"No lessons found in source week {sourceWeekNum}");
-            return;
-        }
-
-        Debug.Log($"Found {sourceWeek.lessen.Count} lessons in source week");
-
-        // Create a new list to store all weeks (existing and new)
-        //List<Week> updatedWeeks = new List<Week>(rijschool.rooster.weken);
-
-        // Copy to subsequent weeks
         for (int i = 1; i <= weeksToGenerate; i++)
         {
-            DateTime targetMonday = monday.AddDays(7 * i);
-            int targetWeekNum = ISOWeek.GetWeekOfYear(targetMonday);
-            int targetYear = targetMonday.Year;
+            monday = monday.AddDays(7);
+            int targetWeekNum = ISOWeek.GetWeekOfYear(monday);
+            int targetYear = monday.Year;
 
-            Debug.Log($"Processing target Week {targetWeekNum}, Year {targetYear}");
-
-            // Find or create target week
-            Week targetWeek = updatedWeeks
+            // Check if target week exists and has lessons
+            var targetWeek = rijschool.rooster.weken
                 .FirstOrDefault(w => w.weekNummer == targetWeekNum && w.jaar == targetYear);
 
-            if (targetWeek == null)
+            bool weekHasLessons = targetWeek?.lessen != null && targetWeek.lessen.Count > 0;
+
+            if (!weekHasLessons)
             {
-                targetWeek = new Week 
-                { 
-                    weekNummer = targetWeekNum, 
-                    jaar = targetYear,
-                    lessen = new List<Les>() 
-                };
-                updatedWeeks.Add(targetWeek);
-                Debug.Log($"Created new week {targetWeekNum}");
-            }
-            else
-            {
-                // Remove existing week so we can replace it
-                updatedWeeks.Remove(targetWeek);
-                targetWeek = new Week
+                // If week doesn't exist or is empty, create it
+                if (targetWeek == null)
                 {
+                    targetWeek = new Week { weekNummer = targetWeekNum, jaar = targetYear };
+                    rijschool.rooster.weken.Add(targetWeek);
+                }
+
+                targetWeek.lessen = sourceWeek.lessen.Select(l => new Les
+                {
+                    begintijd = l.begintijd,
+                    eindtijd = l.eindtijd,
+                    notities = l.notities,
+                    leerlingId = l.leerlingId,
+                    leerlingNaam = l.leerlingNaam,
+                    isAutomatischGepland = l.isAutomatischGepland,
+                    datum = monday.AddDays(GetDayOfWeekFromDate(l.datum)).ToString("dd-MM-yyyy"),
                     weekNummer = targetWeekNum,
-                    jaar = targetYear,
-                    lessen = new List<Les>()
-                };
-                updatedWeeks.Add(targetWeek);
-            }
-
-            // Copy lessons to target week
-            foreach (var sourceLes in sourceWeek.lessen)
-            {
-                try
-                {
-                    // Parse the source date to get the day of week
-                    DateTime sourceDate = DateTime.ParseExact(sourceLes.datum, "dd-MM-yyyy", null);
-                    int dayOffset = (int)sourceDate.DayOfWeek - (int)monday.DayOfWeek;
-                    
-                    // Calculate new date for the target week
-                    DateTime targetDate = targetMonday.AddDays(dayOffset);
-                    
-                    var newLes = new Les
+                    gereserveerdDoorLeerling = l.gereserveerdDoorLeerling?.Select(ll => new Leerling
                     {
-                        begintijd = sourceLes.begintijd,
-                        eindtijd = sourceLes.eindtijd,
-                        datum = targetDate.ToString("dd-MM-yyyy"),
-                        weekNummer = targetWeekNum,
-                        leerlingNaam = sourceLes.leerlingNaam,
-                        notities = sourceLes.notities,
-                        isAutomatischGepland = sourceLes.isAutomatischGepland
-                    };
-
-                    // Deep copy of gereserveerdDoorLeerling
-                    if (sourceLes.gereserveerdDoorLeerling != null)
-                    {
-                        newLes.gereserveerdDoorLeerling = sourceLes.gereserveerdDoorLeerling
-                            .Select(l => new Leerling
-                            {
-                                naam = l.naam,
-                                frequentie = l.frequentie,
-                                colorIndex = l.colorIndex,
-                                minutesPerLes = l.minutesPerLes,
-                                woonPlaats = l.woonPlaats,
-                                wachtwoord = l.wachtwoord
-                            }).ToList();
-                    }
-
-                    targetWeek.lessen.Add(newLes);
-                    Debug.Log($"Copied lesson for {newLes.leerlingNaam} to {newLes.datum} in week {targetWeekNum}");
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError($"Error copying lesson: {e.Message}");
-                }
+                        naam = ll.naam,
+                        frequentie = ll.frequentie,
+                        colorIndex = ll.colorIndex
+                    }).ToList() ?? new List<Leerling>()
+                }).ToList();
             }
-
-            Debug.Log($"Added {targetWeek.lessen.Count} lessons to week {targetWeekNum}");
         }
 
-        try
+        await RijschoolApp.instance.UpdateRijschool(rijschool);
+        LoadLessen();
+    }
+
+    // Helper method to get day of week from date string
+    private int GetDayOfWeekFromDate(string dateString)
+    {
+        if (DateTime.TryParseExact(dateString, "dd-MM-yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime date))
         {
-            Debug.Log($"Updating rijschool with {updatedWeeks.Count} weeks");
-            // Update the rijschool's rooster with the new weeks list
-            rijschool.rooster.weken = updatedWeeks;
-            
-            Debug.Log("Attempting to save changes to server...");
-            await RijschoolApp.instance.UpdateRijschool(rijschool);
-            Debug.Log("Successfully saved changes to server");
-            
-            // Refresh the display
-            LoadLessen();
+            return ((int)date.DayOfWeek + 6) % 7; // Convert to Monday = 0, Sunday = 6
         }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error saving to server: {e.Message}");
-        }
+        return 0;
     }
 
     // Example button click handlers
@@ -3115,16 +3212,12 @@ public class Rooster : MonoBehaviour
 
     public async void ConfirmLesTimeModification()
     {
-        Debug.Log("Starting ConfirmLesTimeModification");
-        
-        // Get the active detail panel (either instructor or student)
         GameObject activePanel = roosterInstructor ? LeraarLesLeerlingLes[0] : LeraarLesLeerlingLes[1];
-        Debug.Log($"Using panel for {(roosterInstructor ? "instructor" : "student")}");
         
         // Get input fields
-        TMP_InputField startTimeInput = activePanel.transform.GetChild(2).GetComponent<TMP_InputField>();
-        TMP_InputField endTimeInput = activePanel.transform.GetChild(3).GetComponent<TMP_InputField>();
-        Debug.Log($"Current input times - Start: {startTimeInput.text}, End: {endTimeInput.text}");
+        TMP_InputField NotitiesInput = activePanel.transform.GetChild(2).GetComponent<TMP_InputField>();
+        TMP_InputField startTimeInput = activePanel.transform.GetChild(3).GetComponent<TMP_InputField>();
+        TMP_InputField endTimeInput = activePanel.transform.GetChild(4).GetComponent<TMP_InputField>();
 
         // Validate time formats
         if (!ValidateTimeFormat(startTimeInput.text) || !ValidateTimeFormat(endTimeInput.text))
@@ -3137,7 +3230,6 @@ public class Rooster : MonoBehaviour
 
         string formattedStartTime = FormatTime(startTimeInput.text);
         string formattedEndTime = FormatTime(endTimeInput.text);
-        Debug.Log($"Formatted times - Start: {formattedStartTime}, End: {formattedEndTime}");
 
         // Validate time order
         if (!ValidateTimeOrder(formattedStartTime, formattedEndTime))
@@ -3202,6 +3294,7 @@ public class Rooster : MonoBehaviour
             // Update the lesson times
             selectedLes.begintijd = formattedStartTime;
             selectedLes.eindtijd = formattedEndTime;
+            selectedLes.notities = NotitiesInput.text.ToString();
         }
         else if (selectedTimeSlot != null)
         {
@@ -3486,6 +3579,97 @@ public class Rooster : MonoBehaviour
         if (int.TryParse(weeks, out int value))
         {
             copyForXWeeks = Math.Max(1, value); // Ensure at least 1 week
+        }
+    }
+
+    // Find the method that handles lesson selection (likely SelectLes or similar)
+    // and add this code to update the Maps button:
+    private void UpdateMapsButton()
+    {
+        if (MapsExtensie != null)
+        {
+            bool shouldBeInteractable = selectedLes != null && 
+                !string.IsNullOrWhiteSpace(RijschoolApp.instance?.selectedRijschool?.leerlingen
+                    .FirstOrDefault(l => l.naam == selectedLes.leerlingNaam)?.adres);
+            
+            MapsExtensie.interactable = shouldBeInteractable;
+        }
+    }
+
+    // Add this new method to handle opening Google Maps
+    public void LoadAdresInMaps()
+    {
+        if (selectedLes == null) return;
+
+        var student = RijschoolApp.instance?.selectedRijschool?.leerlingen
+            .FirstOrDefault(l => l.naam == selectedLes.leerlingNaam);
+
+        if (student == null || string.IsNullOrWhiteSpace(student.adres)) return;
+
+        // Create search term
+        string searchTerm = student.adres;
+        
+        // If woonplaats exists and isn't already part of the address, append it
+        if (!string.IsNullOrWhiteSpace(student.woonPlaats) && 
+            !searchTerm.Contains(student.woonPlaats, StringComparison.OrdinalIgnoreCase))
+        {
+            searchTerm += $", {student.woonPlaats}";
+        }
+
+        // Encode the address for URL
+        string encodedAddress = UnityEngine.Networking.UnityWebRequest.EscapeURL(searchTerm);
+        
+        // Create Google Maps URL
+        string url = $"https://www.google.com/maps/search/?api=1&query={encodedAddress}";
+        
+        // Open in default browser
+        Application.OpenURL(url);
+    }
+
+    // Find the method that handles lesson selection (likely SelectLes)
+    // and add the call to UpdateMapsButton():
+    public void SelectLes(Les les)
+    {
+        selectedLes = les;
+        selectedTimeSlot = null;
+        
+        // ... existing selection code ...
+
+        UpdateMapsButton(); // Add this line
+        
+        // ... rest of existing code ...
+    }
+
+    // Also update the method that clears selection:
+    public void ClearSelection()
+    {
+        selectedLes = null;
+        selectedTimeSlot = null;
+        
+        // ... existing clear code ...
+
+        UpdateMapsButton(); // Add this line
+        
+        // ... rest of existing code ...
+    }
+
+    // Add this new function
+    public async void SetLLKanLessenZien(bool canSee)
+    {
+        PlayerPrefs.SetInt("LLKanLessenZien", canSee ? 1 : 0);
+        PlayerPrefs.Save();
+        
+        if (LLKanLessenZienTrue != null)
+        {
+            LLKanLessenZienTrue.SetActive(canSee);
+        }
+
+        // Update the rijschool's llZienLessen property and sync with server
+        var rijschool = RijschoolApp.instance?.selectedRijschool;
+        if (rijschool != null)
+        {
+            rijschool.LLzienLessen = canSee;
+            await RijschoolApp.instance.UpdateRijschool(rijschool);
         }
     }
 }

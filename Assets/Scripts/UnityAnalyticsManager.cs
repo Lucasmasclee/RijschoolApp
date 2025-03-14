@@ -391,7 +391,7 @@ public class UnityAnalyticsManager : MonoBehaviour
         if (!_isInitialized) return;
         if (inputFieldWachtwoord != null)
         {
-            PlayerPrefs.SetInt("LeraarVerified", 1);
+            //PlayerPrefs.SetInt("LeraarVerified", 1);
             PlayerPrefs.Save();
 
             CustomEvent myEvent = new CustomEvent("instructeurcodemanual");
@@ -407,7 +407,7 @@ public class UnityAnalyticsManager : MonoBehaviour
         if (!_isInitialized) return;
         if (plannercode != null)
         {
-            PlayerPrefs.SetInt("LeraarVerified", 1);
+            //PlayerPrefs.SetInt("LeraarVerified", 1);
             PlayerPrefs.Save();
 
             CustomEvent myEvent = new CustomEvent("instructeurcodeqrcode");

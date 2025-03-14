@@ -78,6 +78,11 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private TMP_InputField startWoonplaatsen;
     [SerializeField] private TMP_InputField eindWoonplaatsen;
     [SerializeField] private GameObject RoosterLeerlingenButton;
+    [SerializeField] private List<TMP_InputField> showRoosterData;
+    [SerializeField] private List<GameObject> roostertijden;
+    [SerializeField] private List<GameObject> roostertijden2;
+    [SerializeField] private List<GameObject> dagenvdweek; // List of GameObjects for each day of the week
+    [SerializeField] private List<GameObject> roosterShowDagen; // New serialized field for the days
     private int pendingLeerlingRemoval = -1;  // Store the index of student pending removal
 
     private List<Rijschool> alleRijscholen;
@@ -85,15 +90,54 @@ public class RijschoolApp : MonoBehaviour
 
     public Rijschool selectedRijschool;
     public Leerling selectedLeerling;
+    [SerializeField] private GameObject introcanvas;
     private string apiUrl = "https://rijschoolapp.onrender.com/api/rijscholen";
 
-    
+    private readonly string[] weekDays = { "Ma", "Di", "Woe", "Do", "Vrij", "Za", "Zo" };
+
+    // Add these constants at the top of the class
+    private const string MIN_TIME = "06:00";
+    private const string MAX_TIME = "22:00";
+
+    private void InitializeRoosterPrefs()
+    {
+        // Initialize day preferences if they don't exist
+        foreach (string day in weekDays)
+        {
+            if (!PlayerPrefs.HasKey("Rooster" + day))
+            {
+                PlayerPrefs.SetInt("Rooster" + day, 1);
+            }
+        }
+
+        // Initialize time preferences if they don't exist
+        if (!PlayerPrefs.HasKey("RoosterStartTime"))
+        {
+            PlayerPrefs.SetString("RoosterStartTime", "07:00");
+        }
+        if (!PlayerPrefs.HasKey("RoosterEndTime"))
+        {
+            PlayerPrefs.SetString("RoosterEndTime", "18:00");
+        }
+        PlayerPrefs.Save();
+    }
 
     private async void Start()
     {
         await LoadRijscholen();
         instance = this;
+        InitializeRoosterPrefs();
         
+        // Update input fields with current PlayerPrefs values
+        if (showRoosterData != null && showRoosterData.Count >= 2)
+        {
+            showRoosterData[0].text = PlayerPrefs.GetString("RoosterStartTime", "07:00");
+            showRoosterData[1].text = PlayerPrefs.GetString("RoosterEndTime", "18:00");
+        }
+
+        // Initialize hour markers
+        UpdateRoosterTijden();
+
         // Check if user is an instructor (has their own driving school)
         if (PlayerPrefs.HasKey("MijnRijschool"))
         {
@@ -215,6 +259,9 @@ public class RijschoolApp : MonoBehaviour
         UpdateWoonplaatsSettingsUI();
 
         UpdateRoosterLeerlingenButtonVisibility();
+        UpdateDagenvdweekVisibility();
+        UpdateRoosterShowDagenVisibility();
+        Rooster.instance.LoadLessen(true);
     }
 
     public void SetSchermActive(bool start, bool leraar, bool leerling, bool rooster)
@@ -558,6 +605,7 @@ public class RijschoolApp : MonoBehaviour
                     LoadMijnRijschool();
                     maakRijschoolGameobject.SetActive(false);
                     mijnRijschoolButton.SetActive(true);
+                    introcanvas.SetActive(!PlayerPrefs.HasKey("Tutorial"));
                 }
                 else
                 {
@@ -1049,6 +1097,315 @@ public class RijschoolApp : MonoBehaviour
             RoosterLeerlingenButton.SetActive(hasStudents);
         }
     }
+
+    public void SetMondayVisible() { SetRoosterDayVisibility("Ma", true); }
+    public void SetMondayHidden() { SetRoosterDayVisibility("Ma", false); }
+    public void SetTuesdayVisible() { SetRoosterDayVisibility("Di", true); }
+    public void SetTuesdayHidden() { SetRoosterDayVisibility("Di", false); }
+    public void SetWednesdayVisible() { SetRoosterDayVisibility("Woe", true); }
+    public void SetWednesdayHidden() { SetRoosterDayVisibility("Woe", false); }
+    public void SetThursdayVisible() { SetRoosterDayVisibility("Do", true); }
+    public void SetThursdayHidden() { SetRoosterDayVisibility("Do", false); }
+    public void SetFridayVisible() { SetRoosterDayVisibility("Vrij", true); }
+    public void SetFridayHidden() { SetRoosterDayVisibility("Vrij", false); }
+    public void SetSaturdayVisible() { SetRoosterDayVisibility("Za", true); }
+    public void SetSaturdayHidden() { SetRoosterDayVisibility("Za", false); }
+    public void SetSundayVisible() { SetRoosterDayVisibility("Zo", true); }
+    public void SetSundayHidden() { SetRoosterDayVisibility("Zo", false); }
+
+    private void SetRoosterDayVisibility(string day, bool visible)
+    {
+        if (Array.Exists(weekDays, d => d == day))
+        {
+            PlayerPrefs.SetInt("Rooster" + day, visible ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        // Update the active state of all days in dagenvdweek based on PlayerPrefs
+        UpdateDagenvdweekVisibility();
+        UpdateRoosterShowDagenVisibility();
+        Rooster.instance.LoadLessen(true);
+        Rooster.instance.RefreshDisplay();
+    }
+
+    private void UpdateDagenvdweekVisibility()
+    {
+        int activeCount = 0;
+        float totalWidth = 1008f;
+        float startX = -468f;
+        float endX = 540f;
+
+        // Count active days and set initial visibility
+        for (int i = 0; i < weekDays.Length; i++)
+        {
+            if (dagenvdweek != null && dagenvdweek.Count > i && dagenvdweek[i] != null)
+            {
+                bool isActive = PlayerPrefs.GetInt("Rooster" + weekDays[i], 1) == 1;
+                dagenvdweek[i].SetActive(isActive);
+                if (isActive)
+                {
+                    activeCount++;
+                }
+            }
+        }
+
+        // Calculate new width for each active day
+        float newWidth = activeCount > 0 ? totalWidth / activeCount : 0;
+
+        // Update each active day's width and position
+        float currentX = startX;
+        for (int i = 0; i < weekDays.Length; i++)
+        {
+            if (dagenvdweek != null && dagenvdweek.Count > i && dagenvdweek[i] != null && dagenvdweek[i].activeSelf)
+            {
+                RectTransform rectTransform = dagenvdweek[i].GetComponent<RectTransform>();
+                if (rectTransform != null)
+                {
+                    // Set the width
+                    rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, newWidth);
+
+                    // Set the x position
+                    Vector3 localPosition = rectTransform.localPosition;
+                    localPosition.x = currentX + newWidth / 2; // Center the GameObject
+                    rectTransform.localPosition = localPosition;
+
+                    // Update currentX for the next active GameObject
+                    currentX += newWidth;
+                }
+            }
+        }
+    }
+
+    private void UpdateRoosterShowDagenVisibility()
+    {
+        for (int i = 0; i < weekDays.Length; i++)
+        {
+            if (roosterShowDagen != null && roosterShowDagen.Count > i && roosterShowDagen[i] != null)
+            {
+                // Retrieve the visibility setting from PlayerPrefs
+                bool isActive = PlayerPrefs.GetInt("Rooster" + weekDays[i], 1) == 1;
+                roosterShowDagen[i].SetActive(isActive);
+            }
+        }
+    }
+
+    public void SetRoosterStartTime(string time)
+    {
+        if (IsValidTimeFormat(time))
+        {
+            string formattedTime = FormatTime(time);
+            PlayerPrefs.SetString("RoosterStartTime", formattedTime);
+            PlayerPrefs.Save();
+
+            // Update input field if available
+            if (showRoosterData != null && showRoosterData.Count >= 1)
+            {
+                showRoosterData[0].text = formattedTime;
+            }
+
+            UpdateRoosterTijden();
+
+            return;
+        }
+    }
+
+    // Modify SetRoosterEndTime to update hour markers
+    public void SetRoosterEndTime(string time)
+    {
+        if (IsValidTimeFormat(time))
+        {
+            string formattedTime = FormatTime(time);
+            PlayerPrefs.SetString("RoosterEndTime", formattedTime);
+            PlayerPrefs.Save();
+
+            // Update input field if available
+            if (showRoosterData != null && showRoosterData.Count >= 2)
+            {
+                showRoosterData[1].text = formattedTime;
+            }
+
+            UpdateRoosterTijden();
+            return;
+        }
+    }
+
+    private void UpdateRoosterTijden()
+    {
+        if (roostertijden == null || roostertijden.Count == 0) return;
+
+        // Get start and end times from PlayerPrefs
+        string startTimeStr = PlayerPrefs.GetString("RoosterStartTime", "07:00");
+        string endTimeStr = PlayerPrefs.GetString("RoosterEndTime", "18:00");
+
+        // Convert times to hours (rounded)
+        int startHour = RoundToNearestHour(TimeToMinutes(startTimeStr)) / 60;
+        int endHour = RoundToNearestHour(TimeToMinutes(endTimeStr)) / 60;
+
+        // Apply additional time constraints
+        startHour = Mathf.Clamp(startHour, 6, 10); // Between 06:00 and 10:00
+        endHour = Mathf.Clamp(endHour, 16, 22);   // Between 16:00 and 22:00
+
+        // Update PlayerPrefs with clamped values
+        PlayerPrefs.SetString("RoosterStartTime", $"{startHour:D2}:00");
+        PlayerPrefs.SetString("RoosterEndTime", $"{endHour:D2}:00");
+        PlayerPrefs.Save();
+
+        int totalHours = endHour - startHour;
+
+        // Calculate spacing between markers
+        float topPosition = 600f;
+        float bottomPosition = -980f;
+        float totalDistance = topPosition - bottomPosition;
+        float spacing = totalDistance / totalHours;
+
+        // Update each hour marker
+        for (int i = 0; i <= totalHours; i++)
+        {
+            if (i < roostertijden.Count && roostertijden[i] != null)
+            {
+                roostertijden[i].SetActive(true);
+                
+                // Set position of the parent
+                RectTransform rectTransform = roostertijden[i].GetComponent<RectTransform>();
+                if (rectTransform != null)
+                {
+                    Vector3 localPosition = rectTransform.localPosition;
+                    localPosition.y = topPosition - (spacing * i);
+                    rectTransform.localPosition = localPosition;
+                }
+
+                // Set position of the child (text container)
+                Transform child = roostertijden[i].transform.GetChild(0);
+                if (child != null)
+                {
+                    RectTransform childRectTransform = child.GetComponent<RectTransform>();
+                    if (childRectTransform != null)
+                    {
+                        Vector3 childLocalPosition = childRectTransform.localPosition;
+                        // Set y position to 20 if it's the last visible hour, 0 otherwise
+                        childLocalPosition.y = (i == totalHours) ? 20f : 0f;
+                        childRectTransform.localPosition = childLocalPosition;
+                    }
+                }
+
+                // Update hour text
+                TextMeshProUGUI hourText = roostertijden[i].GetComponentInChildren<TextMeshProUGUI>();
+                if (hourText != null)
+                {
+                    int currentHour = startHour + i;
+                    hourText.text = currentHour.ToString();
+                }
+            }
+        }
+
+        // Deactivate any remaining hour markers
+        for (int i = totalHours + 1; i < roostertijden.Count; i++)
+        {
+            if (roostertijden[i] != null)
+            {
+                roostertijden[i].SetActive(false);
+            }
+        }
+
+        // Update input fields with clamped values if available
+        if (showRoosterData != null && showRoosterData.Count >= 2)
+        {
+            showRoosterData[0].text = $"{startHour:D2}:00";
+            showRoosterData[1].text = $"{endHour:D2}:00";
+        }
+        Rooster.instance.LoadLessen(true);
+        Rooster.instance.RefreshDisplay();
+    }
+
+    // Helper method to round minutes to nearest hour
+    private int RoundToNearestHour(int minutes)
+    {
+        return Mathf.RoundToInt(minutes / 60f) * 60;
+    }
+
+    // Modify FormatTime to use Rooster's helper methods
+    private string FormatTime(string time)
+    {
+        // If it's just a number (hour), format it as HH:00
+        if (time.Length == 1 || time.Length == 2)
+        {
+            if (int.TryParse(time, out int hour) && hour >= 0 && hour <= 23)
+            {
+                int minutes = hour * 60;
+                int minMinutes = TimeToMinutes(MIN_TIME);
+                int maxMinutes = TimeToMinutes(MAX_TIME);
+                
+                minutes = Mathf.Clamp(minutes, minMinutes, maxMinutes);
+                return $"{(minutes / 60):D2}:00";
+            }
+        }
+
+        // If it's already in HH:mm format, ensure proper formatting
+        if (time.Contains(":"))
+        {
+            string[] parts = time.Split(':');
+            if (parts.Length == 2 &&
+                int.TryParse(parts[0], out int hour) &&
+                int.TryParse(parts[1], out int minute) &&
+                hour >= 0 && hour <= 23 &&
+                minute >= 0 && minute <= 59)
+            {
+                int totalMinutes = (hour * 60) + minute;
+                int minMinutes = TimeToMinutes(MIN_TIME);
+                int maxMinutes = TimeToMinutes(MAX_TIME);
+                
+                totalMinutes = Mathf.Clamp(totalMinutes, minMinutes, maxMinutes);
+                return $"{(totalMinutes / 60):D2}:{(totalMinutes % 60):D2}";
+            }
+        }
+
+        return time;
+    }
+
+    // Add helper method to convert time string to minutes
+    private int TimeToMinutes(string time)
+    {
+        string[] parts = time.Split(':');
+        if (parts.Length == 2 &&
+            int.TryParse(parts[0], out int hour) &&
+            int.TryParse(parts[1], out int minute))
+        {
+            return (hour * 60) + minute;
+        }
+        return 0;
+    }
+
+    // Add helper method to validate time format
+    private bool IsValidTimeFormat(string time)
+    {
+        // Try parsing the time string
+        if (string.IsNullOrEmpty(time)) return false;
+
+        // Handle single digit hour
+        if (time.Length == 1 || time.Length == 2)
+        {
+            if (int.TryParse(time, out int hour) && hour >= 0 && hour <= 23)
+            {
+                return true;
+            }
+        }
+
+        // Handle HH:mm format
+        if (time.Contains(":"))
+        {
+            string[] parts = time.Split(':');
+            if (parts.Length == 2 &&
+                int.TryParse(parts[0], out int hour) &&
+                int.TryParse(parts[1], out int minute) &&
+                hour >= 0 && hour <= 23 &&
+                minute >= 0 && minute <= 59)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 [System.Serializable]
@@ -1192,3 +1549,4 @@ public class Rijschool
         LLzienLessen = false;  // Default value
     }
 }
+

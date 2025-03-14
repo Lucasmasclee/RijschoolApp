@@ -210,6 +210,7 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
                 if(validPasswords.Contains(code))
                 {
                     PlayerPrefs.SetInt("LeraarVerified", 1);
+                    print("leraar verified");
                 }
                 Debug.Log("PlannerCode opgeslagen bij start: " + code);
             }
