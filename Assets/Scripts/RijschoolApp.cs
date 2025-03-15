@@ -83,6 +83,7 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private List<GameObject> roostertijden2;
     [SerializeField] private List<GameObject> dagenvdweek; // List of GameObjects for each day of the week
     [SerializeField] private List<GameObject> roosterShowDagen; // New serialized field for the days
+    [SerializeField] private TMP_InputField pauzeTussenLessen; // New field
     private int pendingLeerlingRemoval = -1;  // Store the index of student pending removal
 
     private List<Rijschool> alleRijscholen;
@@ -262,6 +263,13 @@ public class RijschoolApp : MonoBehaviour
         UpdateDagenvdweekVisibility();
         UpdateRoosterShowDagenVisibility();
         Rooster.instance.LoadLessen(true);
+
+        // Initialize pauzeTussenLessen with PlayerPrefs value
+        if (pauzeTussenLessen != null)
+        {
+            int pauzeValue = PlayerPrefs.GetInt("PauzeTussenLessen", 0);
+            pauzeTussenLessen.text = pauzeValue.ToString();
+        }
     }
 
     public void SetSchermActive(bool start, bool leraar, bool leerling, bool rooster)
@@ -1043,14 +1051,14 @@ public class RijschoolApp : MonoBehaviour
         if (woonplaatsSettings == null || woonplaatsSettings.Count < 4) return;
 
         // First element: StartInWoonplaats = 0
-        woonplaatsSettings[0].SetActive(PlayerPrefs.GetInt("StartInWoonplaats") == 0);
-        
+        //woonplaatsSettings[0].SetActive(PlayerPrefs.GetInt("StartInWoonplaats") == 0);
+
         // Second element: StartInWoonplaats = 1
         woonplaatsSettings[1].SetActive(PlayerPrefs.GetInt("StartInWoonplaats") == 1);
-        
+
         // Third element: EindInWoonplaats = 0
-        woonplaatsSettings[2].SetActive(PlayerPrefs.GetInt("EindInWoonplaats") == 0);
-        
+        //woonplaatsSettings[2].SetActive(PlayerPrefs.GetInt("EindInWoonplaats") == 0);
+
         // Fourth element: EindInWoonplaats = 1
         woonplaatsSettings[3].SetActive(PlayerPrefs.GetInt("EindInWoonplaats") == 1);
     }
@@ -1074,7 +1082,7 @@ public class RijschoolApp : MonoBehaviour
         }
         print(PlayerPrefs.GetInt("StartInWoonplaats") + " , " + PlayerPrefs.GetInt("EindInWoonplaats"));
         PlayerPrefs.Save();
-        UpdateWoonplaatsSettingsUI();
+        //UpdateWoonplaatsSettingsUI();
     }
 
     public void SetStartWoonplaatsen(string woonplaatsen)
@@ -1405,6 +1413,20 @@ public class RijschoolApp : MonoBehaviour
         }
 
         return false;
+    }
+
+    public void SetPauzeTussenLessen(string pauzeString)
+    {
+        if (int.TryParse(pauzeString, out int pauzeValue))
+        {
+            PlayerPrefs.SetInt("PauzeTussenLessen", pauzeValue);
+            PlayerPrefs.Save();
+
+            if (pauzeTussenLessen != null)
+            {
+                pauzeTussenLessen.text = pauzeValue.ToString();
+            }
+        }
     }
 }
 

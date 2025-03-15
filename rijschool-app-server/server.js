@@ -196,6 +196,62 @@ app.get("/clearPlannerCode", (req, res) => {
     res.json({ message: "Planner code cleared" });
 });
 
+// Schema voor verkoperscodes
+const VerkoopCodeSchema = new mongoose.Schema({
+    deviceId: { type: String, required: true },
+    code: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now, expires: 86400 } // Verloopt na 24 uur
+});
+
+const VerkoopCode = mongoose.model("VerkoopCode", VerkoopCodeSchema);
+
+// Route voor het opslaan van de verkoopcode
+app.get("/redirect", async (req, res) => {
+    const { code, deviceId } = req.query;
+    
+    try {
+        // Sla de code op in de database
+        await VerkoopCode.findOneAndUpdate(
+            { deviceId },
+            { code },
+            { upsert: true, new: true }
+        );
+
+        // Redirect naar de app store of play store
+        // Pas deze URLs aan naar je eigen app store links
+        const userAgent = req.headers['user-agent'].toLowerCase();
+        const redirectUrl = userAgent.includes('android')
+            ? 'https://play.google.com/store/apps/details?id=com.jouwapp'
+            : 'https://apps.apple.com/app/jouwapp/id123456789';
+
+        res.redirect(redirectUrl);
+    } catch (error) {
+        console.error('Error saving sales code:', error);
+        res.status(500).json({ error: 'Er ging iets mis bij het opslaan van de code' });
+    }
+});
+
+// Route voor Unity om de code op te halen
+app.get("/api/getCode", async (req, res) => {
+    const { deviceId } = req.query;
+
+    try {
+        const verkoopCode = await VerkoopCode.findOne({ deviceId });
+        
+        if (!verkoopCode) {
+            return res.status(404).json({ error: 'Geen code gevonden voor dit apparaat' });
+        }
+
+        // Verwijder de code na succesvol ophalen
+        await VerkoopCode.findByIdAndDelete(verkoopCode._id);
+        
+        res.json({ code: verkoopCode.code });
+    } catch (error) {
+        console.error('Error retrieving sales code:', error);
+        res.status(500).json({ error: 'Er ging iets mis bij het ophalen van de code' });
+    }
+});
+
 // Add error handling middleware
 app.use((err, req, res, next) => {
     console.error("Global error handler:", err);

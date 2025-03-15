@@ -16,6 +16,7 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     private IExtensionProvider storeExtensionProvider;
 
     private string plannerCodeCookie = "";
+    private string url = "https://rijschoolapp.onrender.com/getPlannerCode";
 
     [Header("Subscription Products")]
     private string monthlySubID = "monthly_subscription";
@@ -40,24 +41,41 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     private bool isSubscribed = false;
     private List<string> validPasswords = new List<string>() { "planner2", "planner3", "planner4", "planner5", "planner6", "planner7", "planner8", "planner9", "planner10", "planner11", "planner12", "planner13", "planner14", "planner15", "planner16", "planner17", "planner18", "planner19", "planner20", }; // You should populate this with valid passwords
 
-    public string urlllllll;
+    private string serverUrl = "https://rijschoolapp.onrender.com/api/getCode?deviceId=";
     private void Start()
     {
-        PlayInstallReferrer.GetInstallReferrerInfo((installReferrerDetails) =>
-        {
-            if (installReferrerDetails.Error == null)
-            {
-                string referrer = installReferrerDetails.InstallReferrer;
-                Debug.Log("Referrer: " + referrer);
+        string deviceId = SystemInfo.deviceUniqueIdentifier;
+        StartCoroutine(GetSalesCode(deviceId));
+    }
 
-                // Send the referrer (planner code) to Unity Analytics
-                UnityAnalyticsManager.Instance.InstructeurcodeQRCode(referrer);
+    IEnumerator GetSalesCode(string deviceId)
+    {
+        // Maak de volledige URL met device ID
+        string fullUrl = serverUrl + deviceId;
+        Debug.Log($"Attempting to fetch sales code from: {fullUrl}");
+
+        using (UnityWebRequest www = UnityWebRequest.Get(fullUrl))
+        {
+            // Verstuur het verzoek
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                // Parse de JSON response
+                string jsonResponse = www.downloadHandler.text;
+                SalesCodeResponse response = JsonUtility.FromJson<SalesCodeResponse>(jsonResponse);
+
+                Debug.Log($"Successfully retrieved sales code: {response.code}");
+
+                // Optioneel: sla de code op in PlayerPrefs voor later gebruik
+                PlayerPrefs.SetString("salesCode", response.code);
+                PlayerPrefs.Save();
             }
             else
             {
-                Debug.LogError("Failed to retrieve referrer");
+                Debug.LogError($"Error fetching sales code: {www.error}");
             }
-        });
+        }
     }
     #region
     private void InitializePurchasing()
@@ -199,40 +217,41 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
 
     IEnumerator CheckRedirectCode()
     {
-        print("checking redirect code");
-        //string url = $"https://rijschoolapp.onrender.com/getPlannerCode?t={DateTime.Now.Ticks}";
-        string url = urlllllll;
-        UnityWebRequest request = UnityWebRequest.Get(url);
+        yield return new WaitForSeconds(0f);
+        //print("checking redirect code");
+        ////string url = $"https://rijschoolapp.onrender.com/getPlannerCode?t={DateTime.Now.Ticks}";
+        //string url = "";
+        //UnityWebRequest request = UnityWebRequest.Get(url);
 
-        // Add no-cache headers
-        request.SetRequestHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        request.SetRequestHeader("Pragma", "no-cache");
-        request.SetRequestHeader("Expires", "0");
+        //// Add no-cache headers
+        //request.SetRequestHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        //request.SetRequestHeader("Pragma", "no-cache");
+        //request.SetRequestHeader("Expires", "0");
 
-        yield return request.SendWebRequest();
+        //yield return request.SendWebRequest();
 
-        if (request.result == UnityWebRequest.Result.Success)
-        {
-            string code = request.downloadHandler.text.ToLower();
-            PlayerPrefs.SetString("plannerCode", code);
-            UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
-            if (!code.Contains("<!doctype") && !code.Contains("<html"))
-            {
-                //PlayerPrefs.SetString("plannerCode", code);
-                UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
-                if (validPasswords.Contains(code))
-                {
-                    PlayerPrefs.SetInt("LeraarVerified", 1);
-                }
-                Debug.Log("PlannerCode opgeslagen bij start: " + code);
-            }
-        }
-        else
-        {
-            // Debug.LogError("Fout bij ophalen redirect code: " + request.error);
-        }
-        leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
-        print("done checking redirect code");
+        //if (request.result == UnityWebRequest.Result.Success)
+        //{
+        //    string code = request.downloadHandler.text.ToLower();
+        //    PlayerPrefs.SetString("plannerCode", code);
+        //    UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
+        //    if (!code.Contains("<!doctype") && !code.Contains("<html"))
+        //    {
+        //        //PlayerPrefs.SetString("plannerCode", code);
+        //        UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
+        //        if (validPasswords.Contains(code))
+        //        {
+        //            PlayerPrefs.SetInt("LeraarVerified", 1);
+        //        }
+        //        Debug.Log("PlannerCode opgeslagen bij start: " + code);
+        //    }
+        //}
+        //else
+        //{
+        //    // Debug.LogError("Fout bij ophalen redirect code: " + request.error);
+        //}
+        //leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
+        //print("done checking redirect code");
 
     }
 
@@ -274,4 +293,10 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
             incorrectPassword.SetActive(true);
         }
     }
+}
+
+[System.Serializable]
+public class SalesCodeResponse
+{
+    public string code;
 }
