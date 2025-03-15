@@ -4,6 +4,7 @@ const cors = require("cors");
 require("dotenv").config();
 const cookieParser = require('cookie-parser');
 
+
 const app = express();
 app.use(cookieParser());
 
@@ -11,22 +12,25 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(cors());
 
+const redirectRoute = require('./routes/redirect'); // Check of het pad klopt
+const getPlannerCodeRoute = require('./routes/getPlannerCode'); // Check of het pad klopt
 const redirectRoute = require('./routes/redirect');
 const getPlannerCodeRoute = require('./routes/getPlannerCode');
 
-// Deze route VOOR andere middleware plaatsen
 app.use(redirectRoute);
-
 app.use(getPlannerCodeRoute);
 
+// Verbind met MongoDB
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
         console.log("MongoDB successfully connected");
+        console.log("Connection string:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@')); // Hide password in logs
         console.log("Connection string:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@'));
     })
     .catch(err => {
         console.error("MongoDB connection error:", err);
+        console.error("Connection string used:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@')); // Hide password in logs
         console.error("Connection string used:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@'));
     });
 
@@ -34,6 +38,7 @@ mongoose.connect(process.env.MONGO_URI)
 const LesSchema = new mongoose.Schema({
     begintijd: { type: String, required: true },
     eindtijd: { type: String, required: true },
+    notities: { type: String, default: "" },
     notities: { type: String },
     datum: { type: String, required: true },  // Format: "dd-MM-yyyy"
     weekNummer: { type: Number, required: true },
@@ -78,6 +83,9 @@ const LeerlingSchema = new mongoose.Schema({
     colorIndex: { type: Number, required: true },
     minutesPerLes: { type: Number, default: 60 },
     beschikbaarheid: [BeschikbaarheidSchema],
+    woonPlaats: { type: String },
+    adres: { type: String },  // New field
+    wachtwoord: { type: String },
     woonPlaats: { type: String },  // New field
     wachtwoord: { type: String }   // New field
 });
@@ -87,6 +95,8 @@ const RijschoolSchema = new mongoose.Schema({
     naam: { type: String, required: true },
     beschrijving: { type: String },
     wachtwoord: { type: String, required: true },
+    woonPlaats: { type: String },
+    LLzienLessen: { type: Boolean, default: false },  // New field
     woonPlaats: { type: String },  // New field
     leerlingen: [LeerlingSchema],
     rooster: {

@@ -1,31 +1,32 @@
 const express = require('express');
 const router = express.Router();
 
-router.get("/redirect", (req, res) => {
-    const { code, verkoper } = req.query;
-    
-    console.log("Redirect endpoint hit");
-    console.log("Query parameters:", req.query);
-    
-    const userAgent = req.headers['user-agent'].toLowerCase();
-    const redirectUrl = userAgent.includes('android')
-        ? 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A'
-        : 'https://apps.apple.com/app/jouwapp/id123456789';
+router.get('/redirect', (req, res) => {
+    const code = req.query.code;
 
-    // Before redirecting, set the download headers
-    res.setHeader('Content-Disposition', 'attachment; filename=salesCode.txt');
-    res.setHeader('Content-Type', 'text/plain');
-    
-    // Send the code as a downloadable file
-    res.send(code || verkoper);
-});
+    if (!code) {
+        console.log("No code provided.");
+        return res.status(400).send("Geen code opgegeven.");
+    }
 
-router.get("/testRedirect", (req, res) => {
-    res.json({
-        message: "Test endpoint working",
-        query: req.query,
-        headers: req.headers
+    // Set the cookie
+    res.cookie('plannerCode', code, { 
+        maxAge: 30 * 24 * 60 * 60 * 1000, 
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: false
     });
-});
+    // Validate and set a cookie with the code
+    if (typeof code === 'string' && code.length < 100 && !code.includes('<')) {
+        res.cookie('plannerCode', code, { 
+            maxAge: 30 * 24 * 60 * 60 * 1000, 
+            httpOnly: false,
+            sameSite: 'lax'
+        });
+    }
 
-module.exports = router;
+    console.log(`Cookie set: plannerCode = ${code}`);
+    
+    // Redirect to the Google Play Store
+    res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
+});
