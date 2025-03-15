@@ -249,24 +249,52 @@ app.get('/qr/:code', (req, res) => {
         <div id="content" style="text-align: center; padding: 20px;">
             <h1>Welkom bij de Rijschool App</h1>
             <p>Even geduld, we stellen je apparaat in...</p>
+            <p id="status"></p>
         </div>
         <script>
-            // Sla de code op in localStorage
-            const code = "${req.params.code}";
-            localStorage.setItem('rijschoolAppCode', code);
+            const statusElement = document.getElementById('status');
             
-            // Wacht kort en verwijs door naar de app store
-            setTimeout(() => {
-                // Check het besturingssysteem
-                const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-                if (/android/i.test(userAgent)) {
-                    window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A';
-                } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-                    window.location.href = 'https://apps.apple.com/app/id[jouw_app_id]';
-                } else {
-                    document.getElementById('content').innerHTML += '<p>Download de app op je mobiele telefoon</p>';
-                }
-            }, 1500);
+            // Sla de code op in localStorage
+            try {
+                const code = "${req.params.code}";
+                localStorage.setItem('rijschoolAppCode', code);
+                statusElement.textContent = 'Code succesvol opgeslagen!';
+                
+                // Wacht kort en verwijs door naar de app store
+                setTimeout(() => {
+                    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                    if (/android/i.test(userAgent)) {
+                        window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner';
+                    } else if (/iPad|iPhone|iPod/.test(userAgent)) {
+                        window.location.href = 'https://apps.apple.com/app/id[jouw_app_id]';
+                    } else {
+                        statusElement.textContent = 'Download de app op je mobiele telefoon';
+                    }
+                }, 2000);
+            } catch (error) {
+                statusElement.textContent = 'Er ging iets mis: ' + error.message;
+            }
+        </script>
+    </body>
+    </html>
+    `;
+    res.send(html);
+});
+
+// Test route om de opgeslagen code te controleren
+app.get('/test-storage', (req, res) => {
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Test Storage</title>
+    </head>
+    <body>
+        <h1>Opgeslagen Code:</h1>
+        <p id="code"></p>
+        <script>
+            const code = localStorage.getItem('rijschoolAppCode');
+            document.getElementById('code').textContent = code || 'Geen code gevonden';
         </script>
     </body>
     </html>

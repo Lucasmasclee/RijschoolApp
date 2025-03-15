@@ -43,35 +43,36 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
 
 
 
-    [DllImport("__Internal")]
-    private static extern string GetStoredCode();
-    private string rijschoolCode;
-    void Start()
-    {
-        ReadStoredCode();
-    }
-    private void ReadStoredCode()
-    {
-#if UNITY_WEBGL && !UNITY_EDITOR
-        // Voor WebGL builds
-        rijschoolCode = GetStoredCode();
-#elif UNITY_ANDROID
-        // Voor Android
-        using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-        using (AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
-        using (AndroidJavaObject context = currentActivity.Call<AndroidJavaObject>("getApplicationContext"))
-        {
-            AndroidJavaClass pluginClass = new AndroidJavaClass("com.yourcompany.plugin.StorageHelper");
-            rijschoolCode = pluginClass.CallStatic<string>("getStoredCode", context);
-        }
-#elif UNITY_IOS
-        // Voor iOS
-        rijschoolCode = _GetStoredCodeIOS();
-#endif
+//    [DllImport("__Internal")]
+//    private static extern string GetStoredCode();
+//    private string rijschoolCode;
+//    void Start()
+//    {
+//        ReadStoredCode();
+//    }
+//    private void ReadStoredCode()
+//    {
+//#if UNITY_WEBGL && !UNITY_EDITOR
+//        // Voor WebGL builds
+//        rijschoolCode = GetStoredCode();
+//#elif UNITY_ANDROID
+//        // Voor Android
+//        using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+//        using (AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+//        using (AndroidJavaObject context = currentActivity.Call<AndroidJavaObject>("getApplicationContext"))
+//        {
+//            AndroidJavaClass pluginClass = new AndroidJavaClass("com.yourcompany.plugin.StorageHelper");
+//            rijschoolCode = pluginClass.CallStatic<string>("getStoredCode", context);
+//        }
+//#elif UNITY_IOS
+//        // Voor iOS
+//        rijschoolCode = _GetStoredCodeIOS();
+//#endif
 
-        Debug.Log($"Retrieved code: {rijschoolCode}");
-        // Hier kun je de code gebruiken voor je app logica
-    }
+//        Debug.Log($"Retrieved code: {rijschoolCode}");
+//        UnityAnalyticsManager.Instance.InstructeurcodeQRCode( rijschoolCode );
+//        // Hier kun je de code gebruiken voor je app logica
+//    }
 
 
 
