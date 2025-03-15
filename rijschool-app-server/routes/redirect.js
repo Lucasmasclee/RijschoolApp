@@ -1,48 +1,71 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 
-// router.get('/redirect', (req, res) => {
-//     const code = req.query.code;
+const VerkoopCodeSchema = new mongoose.Schema({
+    deviceId: { type: String, required: true },
+    code: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now, expires: 86400 }
+});
 
-//     if (!code) {
-//         return res.status(400).send("Geen code opgegeven.");
-//     }
+const VerkoopCode = mongoose.model("VerkoopCode", VerkoopCodeSchema);
 
-//     // Validate and set a cookie with the code
-//     if (typeof code === 'string' && code.length < 100 && !code.includes('<')) {
-//         res.cookie('plannerCode', code, { 
-//             maxAge: 30 * 24 * 60 * 60 * 1000, 
-//             httpOnly: false,
-//             sameSite: 'lax'
-//         });
-//     }
+router.get("/redirect", async (req, res) => {
+    const { code, deviceId } = req.query;
+    
+    console.log("Redirect endpoint hit");
+    console.log("Query parameters:", req.query);
+    console.log("Headers:", req.headers);
+    
+    try {
+        const result = await VerkoopCode.findOneAndUpdate(
+            { deviceId },
+            { code },
+            { upsert: true, new: true }
+        );
+        
+        console.log("Database operation result:", result);
 
-//     // Redirect to the Google Play Store
-//     res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
-// });
+        const userAgent = req.headers['user-agent'].toLowerCase();
+        const redirectUrl = userAgent.includes('android')
+            ? 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A'
+            : 'https://apps.apple.com/app/jouwapp/id123456789';
 
-// const express = require('express');
-// const router = express.Router();
-const uuid = require('uuid'); // Use UUID for unique identifiers
-
-// In-memory storage for demonstration purposes
-const plannerCodeStore = {};
-
-router.get('/redirect', (req, res) => {
-    const code = req.query.code;
-
-    if (!code) {
-        return res.status(400).send("Geen code opgegeven.");
+        res.redirect(redirectUrl);
+    } catch (error) {
+        console.error('Error in redirect endpoint:', error);
+        res.status(500).json({ 
+            error: 'Er ging iets mis bij het opslaan van de code',
+            details: error.message 
+        });
     }
+});
 
-    // Generate a unique identifier
-    const uniqueId = uuid.v4();
+router.get("/api/getCode", async (req, res) => {
+    const { deviceId } = req.query;
 
-    // Store the planner code with the unique identifier
-    plannerCodeStore[uniqueId] = code;
+    try {
+        const verkoopCode = await VerkoopCode.findOne({ deviceId });
+        
+        if (!verkoopCode) {
+            return res.status(404).json({ error: 'Geen code gevonden voor dit apparaat' });
+        }
 
-    // Redirect to the Play Store with the unique identifier as a referral parameter
-    res.redirect(`https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner?referrer=${uniqueId}`);
+        await VerkoopCode.findByIdAndDelete(verkoopCode._id);
+        
+        res.json({ code: verkoopCode.code });
+    } catch (error) {
+        console.error('Error retrieving sales code:', error);
+        res.status(500).json({ error: 'Er ging iets mis bij het ophalen van de code' });
+    }
+});
+
+router.get("/testRedirect", (req, res) => {
+    res.json({
+        message: "Test endpoint working",
+        query: req.query,
+        headers: req.headers
+    });
 });
 
 module.exports = router;
