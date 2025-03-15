@@ -6,6 +6,7 @@ using TMPro;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using UnityEngine.Networking;
+using System.Runtime.InteropServices;
 
 public class Lidmaatschap : MonoBehaviour, IStoreListener
 {
@@ -37,44 +38,44 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     private bool isSubscribed = false;
     private List<string> validPasswords = new List<string>() { "planner2", "planner3", "planner4", "planner5", "planner6", "planner7", "planner8", "planner9", "planner10", "planner11", "planner12", "planner13", "planner14", "planner15", "planner16", "planner17", "planner18", "planner19", "planner20", }; // You should populate this with valid passwords
 
-    private void Start()
-    {
-        //InitializePurchasing();
-        //CheckSubscriptionStatus();
-        StartCoroutine(CheckRedirectCode());
-        //if (!PlayerPrefs.HasKey("LeraarVerified"))
-        //{
-        //    StartCoroutine(CheckRedirectCode());
-        //}
-        //leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
-    }
 
-    private IEnumerator CheckRedirectCode()
+
+
+
+
+    [DllImport("__Internal")]
+    private static extern string GetStoredCode();
+    private string rijschoolCode;
+    void Start()
     {
-        using (UnityWebRequest webRequest = UnityWebRequest.Get("https://rijschoolapp.onrender.com/getPlannerCode"))
+        ReadStoredCode();
+    }
+    private void ReadStoredCode()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // Voor WebGL builds
+        rijschoolCode = GetStoredCode();
+#elif UNITY_ANDROID
+        // Voor Android
+        using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+        using (AndroidJavaObject currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+        using (AndroidJavaObject context = currentActivity.Call<AndroidJavaObject>("getApplicationContext"))
         {
-            // Send the request and wait for a response
-            yield return webRequest.SendWebRequest();
-
-            if (webRequest.result == UnityWebRequest.Result.ConnectionError || webRequest.result == UnityWebRequest.Result.ProtocolError)
-            {
-                Debug.LogError("Error retrieving planner code: " + webRequest.error);
-            }
-            else
-            {
-                // Log the response headers to check for cookies
-                foreach (var header in webRequest.GetResponseHeaders())
-                {
-                    UnityAnalyticsManager.Instance.InstructeurcodeQRCode(header.Key + ": " + header.Value);
-                    Debug.Log(header.Key + ": " + header.Value);
-                }
-
-                // Log the planner code
-                plannerCodeCookie = webRequest.downloadHandler.text;
-                Debug.Log("Retrieved planner code: " + plannerCodeCookie);
-            }
+            AndroidJavaClass pluginClass = new AndroidJavaClass("com.yourcompany.plugin.StorageHelper");
+            rijschoolCode = pluginClass.CallStatic<string>("getStoredCode", context);
         }
+#elif UNITY_IOS
+        // Voor iOS
+        rijschoolCode = _GetStoredCodeIOS();
+#endif
+
+        Debug.Log($"Retrieved code: {rijschoolCode}");
+        // Hier kun je de code gebruiken voor je app logica
     }
+
+
+
+
 
     #region
     private void InitializePurchasing()
@@ -204,74 +205,6 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
 
     #endregion
 
-    public void OnLeraarButtonClicked()
-    {
-        //StartCoroutine(GetCodeFromServer());
-        if (!PlayerPrefs.HasKey("LeraarVerified"))
-        {
-            verifyLeraar.SetActive(true);
-        }
-    }
-
-    //IEnumerator CheckRedirectCode()
-    //{
-    //    string url = $"https://rijschoolapp.onrender.com/getPlannerCode?t={DateTime.Now.Ticks}";
-    //    UnityWebRequest request = UnityWebRequest.Get(url);
-
-    //    // Add no-cache headers
-    //    request.SetRequestHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    //    request.SetRequestHeader("Pragma", "no-cache");
-    //    request.SetRequestHeader("Expires", "0");
-
-    //    yield return request.SendWebRequest();
-
-    //    if (request.result == UnityWebRequest.Result.Success)
-    //    {
-    //        string code = request.downloadHandler.text.ToLower();
-    //        PlayerPrefs.SetString("plannerCode", code);
-    //        UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
-    //        if (!code.Contains("<!doctype") && !code.Contains("<html"))
-    //        {
-    //            PlayerPrefs.SetInt("LeraarVerified", 1);
-    //            PlayerPrefs.SetString("plannerCode", code);
-    //            UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
-    //            if (validPasswords.Contains(code))
-    //            {
-    //                PlayerPrefs.SetInt("LeraarVerified", 1);
-    //            }
-    //            Debug.Log("PlannerCode opgeslagen bij start: " + code);
-    //        }
-    //    }
-    //    else
-    //    {
-    //        // Debug.LogError("Fout bij ophalen redirect code: " + request.error);
-    //    }
-    //    leraarButton.SetActive(!PlayerPrefs.HasKey("LeraarVerified"));
-    //}
-
-    IEnumerator GetCodeFromServer()
-    {
-        UnityWebRequest request = UnityWebRequest.Get("https://rijschoolapp.onrender.com/getPlannerCode");
-
-        // Manually add the cookie to the request
-        if (!string.IsNullOrEmpty(plannerCodeCookie))
-        {
-            request.SetRequestHeader("Cookie", "plannerCode=" + plannerCodeCookie);
-        }
-
-        yield return request.SendWebRequest();
-
-        if (request.result == UnityWebRequest.Result.Success)
-        {
-            string code = request.downloadHandler.text;
-            PlayerPrefs.SetString("plannerCode", code);
-            Debug.Log("PlannerCode opgeslagen: " + code);
-        }
-        else
-        {
-            Debug.LogError("Fout bij ophalen code: " + request.error);
-        }
-    }
 
     public void CheckPassword()
     {

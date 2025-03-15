@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
 const cookieParser = require('cookie-parser');
+const QRCode = require('qrcode');
 
 
 const app = express();
@@ -12,13 +13,6 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(cors());
 
-// Import routes
-const redirectRoute = require('./routes/redirect');
-const getPlannerCodeRoute = require('./routes/getPlannerCode');
-
-// Use routes
-app.use('/', redirectRoute);
-app.use('/', getPlannerCodeRoute);
 
 // Verbind met MongoDB
 // Connect to MongoDB
@@ -203,11 +197,6 @@ app.get("/", (req, res) => {
     res.json({ message: "Rijschool API is running" });
 });
 
-app.get("/clearPlannerCode", (req, res) => {
-    res.clearCookie("plannerCode");
-    res.json({ message: "Planner code cleared" });
-});
-
 // Add error handling middleware
 app.use((err, req, res, next) => {
     console.error("Global error handler:", err);
@@ -245,6 +234,69 @@ app.use((req, res, next) => {
     };
     
     next();
+});
+
+// Voeg deze route toe voor de QR code landing page
+app.get('/qr/:code', (req, res) => {
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Rijschool App Setup</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body>
+        <div id="content" style="text-align: center; padding: 20px;">
+            <h1>Welkom bij de Rijschool App</h1>
+            <p>Even geduld, we stellen je apparaat in...</p>
+        </div>
+        <script>
+            // Sla de code op in localStorage
+            const code = "${req.params.code}";
+            localStorage.setItem('rijschoolAppCode', code);
+            
+            // Wacht kort en verwijs door naar de app store
+            setTimeout(() => {
+                // Check het besturingssysteem
+                const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                if (/android/i.test(userAgent)) {
+                    window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A';
+                } else if (/iPad|iPhone|iPod/.test(userAgent)) {
+                    window.location.href = 'https://apps.apple.com/app/id[jouw_app_id]';
+                } else {
+                    document.getElementById('content').innerHTML += '<p>Download de app op je mobiele telefoon</p>';
+                }
+            }, 1500);
+        </script>
+    </body>
+    </html>
+    `;
+    res.send(html);
+});
+
+// Route om QR code te genereren
+app.get('/generate-qr/:code', async (req, res) => {
+    try {
+        const url = `https://rijschoolapp.onrender.com/qr/${req.params.code}`;
+        const qrImage = await QRCode.toDataURL(url);
+        
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>QR Code</title>
+        </head>
+        <body style="text-align: center; padding: 20px;">
+            <h1>Scan deze QR code</h1>
+            <img src="${qrImage}" alt="QR Code">
+        </body>
+        </html>
+        `;
+        
+        res.send(html);
+    } catch (error) {
+        res.status(500).send('Error generating QR code');
+    }
 });
 
 // Start server
