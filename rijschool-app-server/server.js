@@ -207,7 +207,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Add this logging middleware before your routes
+// Add these logging middleware before your routes
 app.use((req, res, next) => {
     console.log('\n=== Incoming Request ===');
     console.log('URL:', req.url);
@@ -217,7 +217,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Update the getPlannerCode route to log response details
+// Add response logging middleware
 app.use((req, res, next) => {
     // Store the original res.send
     const originalSend = res.send;
