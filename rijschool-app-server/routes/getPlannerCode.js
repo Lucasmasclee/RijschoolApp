@@ -20,3 +20,5 @@ router.get('/getPlannerCode', (req, res) => {
         res.send("Ongeldige code gevonden");
     }
 });
+
+module.exports = router;

@@ -30,3 +30,5 @@ router.get('/redirect', (req, res) => {
     // Redirect to the Google Play Store
     res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
 });
+
+module.exports = router;

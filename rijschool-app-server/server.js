@@ -12,11 +12,13 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(cors());
 
-const redirectRoute = require('./routes/redirect'); // Check of het pad klopt
-const getPlannerCodeRoute = require('./routes/getPlannerCode'); // Check of het pad klopt
+// Import routes
+const redirectRoute = require('./routes/redirect');
+const getPlannerCodeRoute = require('./routes/getPlannerCode');
 
-app.use(redirectRoute);
-app.use(getPlannerCodeRoute);
+// Use routes
+app.use('/', redirectRoute);
+app.use('/', getPlannerCodeRoute);
 
 // Verbind met MongoDB
 // Connect to MongoDB
