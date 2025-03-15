@@ -47,10 +47,10 @@ public class CodeReader : MonoBehaviour
         string cleanCode = code.Trim(); // Remove any whitespace
         
         // Call UnityAnalyticsManager with the received code
-        if (UnityAnalyticsManager.instance != null)
+        if (UnityAnalyticsManager.Instance != null)
         {
             // Make sure we're sending just the code value, not any URL parameters
-            UnityAnalyticsManager.instance.InstructorQRCode(cleanCode);
+            UnityAnalyticsManager.Instance.InstructeurcodeQRCode(cleanCode);
         }
         else
         {

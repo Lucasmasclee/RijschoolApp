@@ -238,6 +238,9 @@ app.use((req, res, next) => {
 
 // Voeg deze route toe voor de QR code landing page
 app.get('/qr/:code', (req, res) => {
+    const code = req.params.code.trim();
+    console.log('Received code:', code); // Debug log
+
     const html = `
     <!DOCTYPE html>
     <html>
@@ -250,15 +253,23 @@ app.get('/qr/:code', (req, res) => {
             <h1>Welkom bij de Rijschool App</h1>
             <p>Even geduld, we stellen je apparaat in...</p>
             <p id="status"></p>
+            <p id="debug"></p>
         </div>
         <script>
             const statusElement = document.getElementById('status');
+            const debugElement = document.getElementById('debug');
             
             try {
-                // Store just the clean code value
-                const code = "${req.params.code}".trim();
+                // Store the code in localStorage
+                const code = "${code}";
                 localStorage.setItem('rijschoolAppCode', code);
+                
+                // Debug output
                 statusElement.textContent = 'Code succesvol opgeslagen!';
+                debugElement.textContent = 'Opgeslagen code: ' + localStorage.getItem('rijschoolAppCode');
+                
+                // Clear any existing plannerCode cookie
+                document.cookie = "plannerCode=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                 
                 // Wacht kort en verwijs door naar de app store
                 setTimeout(() => {
@@ -273,28 +284,39 @@ app.get('/qr/:code', (req, res) => {
                 }, 2000);
             } catch (error) {
                 statusElement.textContent = 'Er ging iets mis: ' + error.message;
+                debugElement.textContent = 'Error details: ' + error;
             }
         </script>
     </body>
     </html>
     `;
+    
+    // Clear any existing plannerCode cookie
+    res.clearCookie('plannerCode');
     res.send(html);
 });
 
-// Test route om de opgeslagen code te controleren
-app.get('/test-storage', (req, res) => {
+// Add a debug endpoint
+app.get('/debug-storage', (req, res) => {
     const html = `
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Test Storage</title>
+        <title>Debug Storage</title>
     </head>
     <body>
-        <h1>Opgeslagen Code:</h1>
-        <p id="code"></p>
+        <h1>Storage Debug Info:</h1>
+        <div id="debug"></div>
         <script>
-            const code = localStorage.getItem('rijschoolAppCode');
-            document.getElementById('code').textContent = code || 'Geen code gevonden';
+            const debugDiv = document.getElementById('debug');
+            try {
+                const code = localStorage.getItem('rijschoolAppCode');
+                const cookies = document.cookie;
+                debugDiv.innerHTML = '<p>localStorage code: ' + code + '</p>' +
+                    '<p>Cookies: ' + cookies + '</p>';
+            } catch (error) {
+                debugDiv.textContent = 'Error: ' + error;
+            }
         </script>
     </body>
     </html>
