@@ -239,7 +239,7 @@ app.use((req, res, next) => {
 // Voeg deze route toe voor de QR code landing page
 app.get('/qr/:code', (req, res) => {
     const code = req.params.code.trim();
-    console.log('Received code:', code); // Debug log
+    console.log('Received code:', code);
 
     const html = `
     <!DOCTYPE html>
@@ -247,6 +247,13 @@ app.get('/qr/:code', (req, res) => {
     <head>
         <title>Rijschool App Setup</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>
+            // Check if code exists on page load
+            window.onload = function() {
+                const savedCode = localStorage.getItem('rijschoolAppCode');
+                console.log('Stored code on load:', savedCode);
+            }
+        </script>
     </head>
     <body>
         <div id="content" style="text-align: center; padding: 20px;">
@@ -267,6 +274,7 @@ app.get('/qr/:code', (req, res) => {
                 // Debug output
                 statusElement.textContent = 'Code succesvol opgeslagen!';
                 debugElement.textContent = 'Opgeslagen code: ' + localStorage.getItem('rijschoolAppCode');
+                console.log('Code stored:', code); // Add console log
                 
                 // Clear any existing plannerCode cookie
                 document.cookie = "plannerCode=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -274,6 +282,7 @@ app.get('/qr/:code', (req, res) => {
                 // Wacht kort en verwijs door naar de app store
                 setTimeout(() => {
                     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                    console.log('Final stored code before redirect:', localStorage.getItem('rijschoolAppCode')); // Add final check
                     if (/android/i.test(userAgent)) {
                         window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner';
                     } else if (/iPad|iPhone|iPod/.test(userAgent)) {
@@ -285,13 +294,13 @@ app.get('/qr/:code', (req, res) => {
             } catch (error) {
                 statusElement.textContent = 'Er ging iets mis: ' + error.message;
                 debugElement.textContent = 'Error details: ' + error;
+                console.error('Error:', error); // Add error logging
             }
         </script>
     </body>
     </html>
     `;
     
-    // Clear any existing plannerCode cookie
     res.clearCookie('plannerCode');
     res.send(html);
 });
