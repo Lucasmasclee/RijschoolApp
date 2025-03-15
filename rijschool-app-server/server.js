@@ -198,12 +198,12 @@ app.get("/clearPlannerCode", (req, res) => {
     res.json({ message: "Planner code cleared" });
 });
 
-// Schema voor verkoperscodes
-const VerkoopCodeSchema = new mongoose.Schema({
-    deviceId: { type: String, required: true },
-    code: { type: String, required: true },
-    createdAt: { type: Date, default: Date.now, expires: 86400 } // Verloopt na 24 uur
-});
+// // Schema voor verkoperscodes
+// const VerkoopCodeSchema = new mongoose.Schema({
+//     deviceId: { type: String, required: true },
+//     code: { type: String, required: true },
+//     createdAt: { type: Date, default: Date.now, expires: 86400 } // Verloopt na 24 uur
+// });
 
 const VerkoopCode = mongoose.model("VerkoopCode", VerkoopCodeSchema);
 
