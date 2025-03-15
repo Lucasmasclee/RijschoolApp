@@ -263,6 +263,30 @@ app.get("/api/getCode", async (req, res) => {
     }
 });
 
+// Test endpoint
+app.get("/testcode", async (req, res) => {
+    const { code, deviceId } = req.query;
+    
+    try {
+        const result = await VerkoopCode.findOneAndUpdate(
+            { deviceId },
+            { code },
+            { upsert: true, new: true }
+        );
+        
+        res.json({ 
+            message: "Code saved successfully", 
+            savedCode: result 
+        });
+    } catch (error) {
+        console.error('Test endpoint error:', error);
+        res.status(500).json({ 
+            error: 'Error saving code',
+            details: error.message 
+        });
+    }
+});
+
 // Add error handling middleware
 app.use((err, req, res, next) => {
     console.error("Global error handler:", err);
