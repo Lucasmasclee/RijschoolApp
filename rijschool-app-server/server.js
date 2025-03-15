@@ -205,13 +205,14 @@ app.get("/clearPlannerCode", (req, res) => {
 //     createdAt: { type: Date, default: Date.now, expires: 86400 } // Verloopt na 24 uur
 // });
 
-const VerkoopCode = mongoose.model("VerkoopCode", VerkoopCodeSchema);
-
 // Test endpoint
 app.get("/testcode", async (req, res) => {
     const { code, deviceId } = req.query;
     
     try {
+        // Import the model from the redirect route
+        const VerkoopCode = mongoose.model("VerkoopCode");
+        
         const result = await VerkoopCode.findOneAndUpdate(
             { deviceId },
             { code },
