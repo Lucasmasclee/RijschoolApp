@@ -254,9 +254,9 @@ app.get('/qr/:code', (req, res) => {
         <script>
             const statusElement = document.getElementById('status');
             
-            // Sla de code op in localStorage
             try {
-                const code = "${req.params.code}";
+                // Store just the clean code value
+                const code = "${req.params.code}".trim();
                 localStorage.setItem('rijschoolAppCode', code);
                 statusElement.textContent = 'Code succesvol opgeslagen!';
                 

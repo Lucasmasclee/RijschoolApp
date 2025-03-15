@@ -42,6 +42,20 @@ public class CodeReader : MonoBehaviour
             codeText.text = "Code: " + code;
         }
         Debug.Log("Ontvangen code: " + code);
+        
+        // Clean up the code before sending to analytics
+        string cleanCode = code.Trim(); // Remove any whitespace
+        
+        // Call UnityAnalyticsManager with the received code
+        if (UnityAnalyticsManager.instance != null)
+        {
+            // Make sure we're sending just the code value, not any URL parameters
+            UnityAnalyticsManager.instance.InstructorQRCode(cleanCode);
+        }
+        else
+        {
+            Debug.LogError("UnityAnalyticsManager instance not found!");
+        }
     }
 
     void OnCodeError(string error)
