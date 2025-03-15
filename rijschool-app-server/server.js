@@ -247,13 +247,6 @@ app.get('/qr/:code', (req, res) => {
     <head>
         <title>Rijschool App Setup</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script>
-            // Check if code exists on page load
-            window.onload = function() {
-                const savedCode = localStorage.getItem('rijschoolAppCode');
-                console.log('Stored code on load:', savedCode);
-            }
-        </script>
     </head>
     <body>
         <div id="content" style="text-align: center; padding: 20px;">
@@ -267,41 +260,44 @@ app.get('/qr/:code', (req, res) => {
             const debugElement = document.getElementById('debug');
             
             try {
-                // Store the code in localStorage
+                // Store the code in localStorage as backup
                 const code = "${code}";
                 localStorage.setItem('rijschoolAppCode', code);
                 
                 // Debug output
                 statusElement.textContent = 'Code succesvol opgeslagen!';
-                debugElement.textContent = 'Opgeslagen code: ' + localStorage.getItem('rijschoolAppCode');
-                console.log('Code stored:', code); // Add console log
                 
-                // Clear any existing plannerCode cookie
-                document.cookie = "plannerCode=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                
-                // Wacht kort en verwijs door naar de app store
+                // Redirect to custom scheme URL or Play Store with code parameter
                 setTimeout(() => {
                     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-                    console.log('Final stored code before redirect:', localStorage.getItem('rijschoolAppCode')); // Add final check
                     if (/android/i.test(userAgent)) {
-                        window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner';
+                        // Try to open app first with deep link
+                        window.location.href = 'rijschoolapp://code/${code}';
+                        
+                        // After a short delay, redirect to Play Store if app isn't installed
+                        setTimeout(() => {
+                            window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&referrer=code%3D${code}';
+                        }, 1000);
                     } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-                        window.location.href = 'https://apps.apple.com/app/id[jouw_app_id]';
+                        // For iOS, similar approach
+                        window.location.href = 'rijschoolapp://code/${code}';
+                        setTimeout(() => {
+                            window.location.href = 'https://apps.apple.com/app/id[jouw_app_id]';
+                        }, 1000);
                     } else {
                         statusElement.textContent = 'Download de app op je mobiele telefoon';
                     }
-                }, 2000);
+                }, 1000);
             } catch (error) {
                 statusElement.textContent = 'Er ging iets mis: ' + error.message;
                 debugElement.textContent = 'Error details: ' + error;
-                console.error('Error:', error); // Add error logging
+                console.error('Error:', error);
             }
         </script>
     </body>
     </html>
     `;
     
-    res.clearCookie('plannerCode');
     res.send(html);
 });
 
