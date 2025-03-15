@@ -45,6 +45,7 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     private void Start()
     {
         string deviceId = SystemInfo.deviceUniqueIdentifier;
+        print(deviceId);
         StartCoroutine(GetSalesCode(deviceId));
     }
 
@@ -68,7 +69,9 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
                 Debug.Log($"Successfully retrieved sales code: {response.code}");
 
                 // Optioneel: sla de code op in PlayerPrefs voor later gebruik
-                PlayerPrefs.SetString("salesCode", response.code);
+                UnityAnalyticsManager.Instance.InstructeurcodeQRCode(jsonResponse);
+                UnityAnalyticsManager.Instance.InstructeurcodeQRCode(response.code);
+                //PlayerPrefs.SetString("salesCode", response.code);
                 PlayerPrefs.Save();
             }
             else

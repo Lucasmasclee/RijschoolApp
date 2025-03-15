@@ -209,25 +209,36 @@ const VerkoopCode = mongoose.model("VerkoopCode", VerkoopCodeSchema);
 app.get("/redirect", async (req, res) => {
     const { code, deviceId } = req.query;
     
+    console.log("Redirect endpoint hit");
+    console.log("Query parameters:", req.query);
+    console.log("Headers:", req.headers);
+    
     try {
-        // Sla de code op in de database
-        await VerkoopCode.findOneAndUpdate(
+        // Log vóór database operatie
+        console.log("Attempting to save code to database...");
+        
+        const result = await VerkoopCode.findOneAndUpdate(
             { deviceId },
             { code },
             { upsert: true, new: true }
         );
+        
+        // Log na database operatie
+        console.log("Database operation result:", result);
 
-        // Redirect naar de app store of play store
-        // Pas deze URLs aan naar je eigen app store links
         const userAgent = req.headers['user-agent'].toLowerCase();
         const redirectUrl = userAgent.includes('android')
-            ? 'https://play.google.com/store/apps/details?id=com.jouwapp'
+            ? 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A'
             : 'https://apps.apple.com/app/jouwapp/id123456789';
 
+        console.log("Redirecting to:", redirectUrl);
         res.redirect(redirectUrl);
     } catch (error) {
-        console.error('Error saving sales code:', error);
-        res.status(500).json({ error: 'Er ging iets mis bij het opslaan van de code' });
+        console.error('Error in redirect endpoint:', error);
+        res.status(500).json({ 
+            error: 'Er ging iets mis bij het opslaan van de code',
+            details: error.message 
+        });
     }
 });
 
