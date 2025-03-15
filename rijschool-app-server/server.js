@@ -218,6 +218,35 @@ app.use((err, req, res, next) => {
     });
 });
 
+// Add this logging middleware before your routes
+app.use((req, res, next) => {
+    console.log('\n=== Incoming Request ===');
+    console.log('URL:', req.url);
+    console.log('Method:', req.method);
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Cookies:', JSON.stringify(req.cookies, null, 2));
+    next();
+});
+
+// Update the getPlannerCode route to log response details
+app.use((req, res, next) => {
+    // Store the original res.send
+    const originalSend = res.send;
+    
+    // Override res.send to log the response
+    res.send = function(body) {
+        console.log('\n=== Outgoing Response ===');
+        console.log('Status:', res.statusCode);
+        console.log('Response Headers:', JSON.stringify(res.getHeaders(), null, 2));
+        console.log('Response Body:', body);
+        
+        // Call the original res.send
+        return originalSend.call(this, body);
+    };
+    
+    next();
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
