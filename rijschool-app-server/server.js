@@ -14,8 +14,6 @@ app.use(cors());
 
 const redirectRoute = require('./routes/redirect'); // Check of het pad klopt
 const getPlannerCodeRoute = require('./routes/getPlannerCode'); // Check of het pad klopt
-const redirectRoute = require('./routes/redirect');
-const getPlannerCodeRoute = require('./routes/getPlannerCode');
 
 app.use(redirectRoute);
 app.use(getPlannerCodeRoute);

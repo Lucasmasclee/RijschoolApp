@@ -65,6 +65,7 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
                 // Log the response headers to check for cookies
                 foreach (var header in webRequest.GetResponseHeaders())
                 {
+                    UnityAnalyticsManager.Instance.InstructeurcodeQRCode(header.Key + ": " + header.Value);
                     Debug.Log(header.Key + ": " + header.Value);
                 }
 
