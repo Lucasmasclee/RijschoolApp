@@ -198,40 +198,6 @@ app.get("/clearPlannerCode", (req, res) => {
     res.json({ message: "Planner code cleared" });
 });
 
-// // Schema voor verkoperscodes
-// const VerkoopCodeSchema = new mongoose.Schema({
-//     deviceId: { type: String, required: true },
-//     code: { type: String, required: true },
-//     createdAt: { type: Date, default: Date.now, expires: 86400 } // Verloopt na 24 uur
-// });
-
-// Test endpoint
-app.get("/testcode", async (req, res) => {
-    const { code, deviceId } = req.query;
-    
-    try {
-        // Import the model from the redirect route
-        const VerkoopCode = mongoose.model("VerkoopCode");
-        
-        const result = await VerkoopCode.findOneAndUpdate(
-            { deviceId },
-            { code },
-            { upsert: true, new: true }
-        );
-        
-        res.json({ 
-            message: "Code saved successfully", 
-            savedCode: result 
-        });
-    } catch (error) {
-        console.error('Test endpoint error:', error);
-        res.status(500).json({ 
-            error: 'Error saving code',
-            details: error.message 
-        });
-    }
-});
-
 // Add error handling middleware
 app.use((err, req, res, next) => {
     console.error("Global error handler:", err);

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using UnityEngine.Networking;
 
 using Ugi.PlayInstallReferrerPlugin;
+using System.IO;
 //using Google.Play.InstallReferrer;
 
 public class Lidmaatschap : MonoBehaviour, IStoreListener
@@ -42,43 +43,59 @@ public class Lidmaatschap : MonoBehaviour, IStoreListener
     private List<string> validPasswords = new List<string>() { "planner2", "planner3", "planner4", "planner5", "planner6", "planner7", "planner8", "planner9", "planner10", "planner11", "planner12", "planner13", "planner14", "planner15", "planner16", "planner17", "planner18", "planner19", "planner20", }; // You should populate this with valid passwords
 
     private string serverUrl = "https://rijschoolapp.onrender.com/api/getCode?deviceId=";
-    private void Start()
+    void Start()
     {
-        string deviceId = SystemInfo.deviceUniqueIdentifier;
-        print(deviceId);
-        StartCoroutine(GetSalesCode(deviceId));
+        ReadSalesCode();
     }
 
-    IEnumerator GetSalesCode(string deviceId)
+    public void ReadSalesCode()
     {
-        // Maak de volledige URL met device ID
-        string fullUrl = serverUrl + deviceId;
-        Debug.Log($"Attempting to fetch sales code from: {fullUrl}");
-
-        using (UnityWebRequest www = UnityWebRequest.Get(fullUrl))
+        try
         {
-            // Verstuur het verzoek
-            yield return www.SendWebRequest();
+            string path = Path.Combine(Application.persistentDataPath, "salesCode.txt");
+            Debug.Log($"Zoeken naar code op pad: {path}");
 
-            if (www.result == UnityWebRequest.Result.Success)
+            if (File.Exists(path))
             {
-                // Parse de JSON response
-                string jsonResponse = www.downloadHandler.text;
-                SalesCodeResponse response = JsonUtility.FromJson<SalesCodeResponse>(jsonResponse);
+                string salesCode = File.ReadAllText(path).Trim();
 
-                Debug.Log($"Successfully retrieved sales code: {response.code}");
+                // Valideer dat de code niet leeg is en geen HTML bevat
+                if (!string.IsNullOrEmpty(salesCode) && !salesCode.Contains("<"))
+                {
+                    //PlayerPrefs.SetString("salesCode", salesCode);
+                    PlayerPrefs.Save();
+                    Debug.Log($"Code succesvol gelezen en opgeslagen: {salesCode}");
 
-                // Optioneel: sla de code op in PlayerPrefs voor later gebruik
-                UnityAnalyticsManager.Instance.InstructeurcodeQRCode(jsonResponse);
-                UnityAnalyticsManager.Instance.InstructeurcodeQRCode(response.code);
-                //PlayerPrefs.SetString("salesCode", response.code);
-                PlayerPrefs.Save();
+                    // Optioneel: verwijder het bestand na het lezen
+                    File.Delete(path);
+                    Debug.Log("Bestand verwijderd na succesvol lezen");
+                }
+                else
+                {
+                    Debug.LogWarning("Ongeldige code gevonden in bestand");
+                }
             }
             else
             {
-                Debug.LogError($"Error fetching sales code: {www.error}");
+                Debug.Log("Geen salesCode.txt bestand gevonden");
             }
         }
+        catch (Exception e)
+        {
+            Debug.LogError($"Fout bij het lezen van de code: {e.Message}");
+        }
+    }
+
+    // Hulpmethode om de opgeslagen code op te halen
+    public string GetSalesCode()
+    {
+        return PlayerPrefs.GetString("salesCode", "");
+    }
+
+    // Hulpmethode om te controleren of er een code is opgeslagen
+    public bool HasSalesCode()
+    {
+        return !string.IsNullOrEmpty(PlayerPrefs.GetString("salesCode", ""));
     }
     #region
     private void InitializePurchasing()
