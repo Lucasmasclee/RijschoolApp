@@ -206,10 +206,8 @@ app.all('/api/generate-qr', async (req, res) => {
         const newCode = new Code({ code: uniqueCode });
         await newCode.save();
 
-        // Maak een deeplink URL
-        // Vervang 'your-app-scheme' met je eigen app scheme (bijvoorbeeld 'mijnerijschool')
-        // En vervang 'your-app-store-url' met de URL van je app in de store
-        const deeplinkUrl = `your-app-scheme://code/${uniqueCode}`;
+        // Maak een deeplink URL met de code
+        const deeplinkUrl = `your-app-scheme://code/${uniqueCode}`; // Deeplink met de unieke code
         const fallbackUrl = `https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A`;
         const redirectUrl = `${process.env.SERVER_URL}/redirect/${uniqueCode}`;
 
@@ -219,7 +217,7 @@ app.all('/api/generate-qr', async (req, res) => {
         res.json({
             code: uniqueCode,
             qrCode: qrCode,
-            deeplinkUrl: deeplinkUrl
+            deeplinkUrl: deeplinkUrl // Stuur de deeplink terug in de response
         });
     } catch (error) {
         console.error('QR Generation error:', error);
