@@ -260,8 +260,8 @@ app.get('/qr/:code', (req, res) => {
             const debugElement = document.getElementById('debug');
             
             try {
-                // Store the code in localStorage as backup
-                const code = "code=${code}"; // Dit is het belangrijke deel - we voegen "code=" toe
+                // Store the code directly without any URL parameters
+                const code = "${code}";
                 localStorage.setItem('rijschoolAppCode', code);
                 
                 // Debug output
@@ -271,12 +271,12 @@ app.get('/qr/:code', (req, res) => {
                 setTimeout(() => {
                     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
                     if (/android/i.test(userAgent)) {
-                        // Try to open app first with deep link
+                        // Try to open app first with deep link - send raw code
                         window.location.href = 'rijschoolapp://code/' + code;
                         
                         // After a short delay, redirect to Play Store if app isn't installed
                         setTimeout(() => {
-                            window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&referrer=' + encodeURIComponent(code);
+                            window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner';
                         }, 1000);
                     } else if (/iPad|iPhone|iPod/.test(userAgent)) {
                         window.location.href = 'rijschoolapp://code/' + code;

@@ -34,15 +34,22 @@ public class CodeReader : MonoBehaviour
             string[] parts = url.Split(new[] { "code/" }, System.StringSplitOptions.None);
             if (parts.Length > 1)
             {
-                string code = parts[1];
+                string code = parts[1].Trim(); // Trim any whitespace
+                
+                // Remove any URL parameters if present
+                if (code.Contains("?"))
+                {
+                    code = code.Split('?')[0];
+                }
+                
                 if (codeText != null)
                 {
                     codeText.text = "Code ontvangen: " + code;
                 }
 
-                if (UnityAnalyticsManager.Instance != null)
+                if (UnityAnalyticsManager.instance != null)
                 {
-                    UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
+                    UnityAnalyticsManager.instance.InstructorQRCode(code);
                     codeText.text += "\nCode verstuurd naar Analytics";
                 }
             }
