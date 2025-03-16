@@ -8,62 +8,44 @@ public class CodeReader : MonoBehaviour
 
     void Start()
     {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            // WebGL specifieke code
-            GetCodeFromLocalStorage();
-#else
-        // Android/iOS specifieke code
-        GetCodeFromLocalStorage();
-#endif
+        if (codeText != null)
+        {
+            codeText.text = "Waiting for code...";
+        }
+
+        Application.deepLinkActivated += OnDeepLinkActivated;
+        
+        if (!string.IsNullOrEmpty(Application.absoluteURL))
+        {
+            OnDeepLinkActivated(Application.absoluteURL);
+        }
     }
 
-    private void GetCodeFromLocalStorage()
+    private void OnDeepLinkActivated(string url)
     {
-        // JavaScript functie aanroepen
-        Application.ExternalEval(@"
-            try {
-                var code = localStorage.getItem('rijschoolAppCode');
-                if (code) {
-                    gameObject.SendMessage('OnCodeReceived', code);
-                } else {
-                    gameObject.SendMessage('OnCodeError', 'Geen code gevonden');
+        if (codeText != null)
+        {
+            codeText.text = "URL ontvangen: " + url;
+        }
+
+        // Parse the URL to get the code
+        if (url.Contains("code/"))
+        {
+            string[] parts = url.Split(new[] { "code/" }, System.StringSplitOptions.None);
+            if (parts.Length > 1)
+            {
+                string code = parts[1];
+                if (codeText != null)
+                {
+                    codeText.text = "Code ontvangen: " + code;
                 }
-            } catch (error) {
-                gameObject.SendMessage('OnCodeError', error.message);
+
+                if (UnityAnalyticsManager.instance != null)
+                {
+                    UnityAnalyticsManager.instance.InstructorQRCode(code);
+                    codeText.text += "\nCode verstuurd naar Analytics";
+                }
             }
-        ");
-    }
-
-    // Deze functie wordt aangeroepen door JavaScript
-    void OnCodeReceived(string code)
-    {
-        if (codeText != null)
-        {
-            codeText.text = "Code: " + code;
         }
-        Debug.Log("Ontvangen code: " + code);
-        
-        // Clean up the code before sending to analytics
-        string cleanCode = code.Trim(); // Remove any whitespace
-        
-        // Call UnityAnalyticsManager with the received code
-        if (UnityAnalyticsManager.Instance != null)
-        {
-            // Make sure we're sending just the code value, not any URL parameters
-            UnityAnalyticsManager.Instance.InstructeurcodeQRCode(cleanCode);
-        }
-        else
-        {
-            Debug.LogError("UnityAnalyticsManager instance not found!");
-        }
-    }
-
-    void OnCodeError(string error)
-    {
-        if (codeText != null)
-        {
-            codeText.text = "Error: " + error;
-        }
-        Debug.LogError("Error bij ophalen code: " + error);
     }
 }
