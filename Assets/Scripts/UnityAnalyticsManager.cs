@@ -104,7 +104,7 @@ public class UnityAnalyticsManager : MonoBehaviour
             
             AnalyticsService.Instance.RecordEvent(myEvent);
             AnalyticsService.Instance.Flush();
-            Debug.Log($"[Analytics] Screen exit event sent: {screenName}, Duration: {duration.TotalSeconds:F2} seconds");
+            //Debug.Log($"[Analytics] Screen exit event sent: {screenName}, Duration: {duration.TotalSeconds:F2} seconds");
             screenStartTimes.Remove(screenName);
         }
     }

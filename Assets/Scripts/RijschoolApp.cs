@@ -65,6 +65,7 @@ public class RijschoolApp : MonoBehaviour
     [SerializeField] private GameObject mijnRijschoolButton;
     [SerializeField] private GameObject eigenRijschoolIndicator; // This will be shown when viewing own driving school
     [SerializeField] private TextMeshProUGUI ingelogdAlsText;
+    [SerializeField] private TextMeshProUGUI BschkHeledag;
     [SerializeField] private GameObject maakrijschoolbevestigen;
     [SerializeField] private List<TMP_InputField> editRijschoolInputFields; // Name, Description, Password, Woonplaats
     [SerializeField] private GameObject nameExistsWarning;
@@ -270,6 +271,7 @@ public class RijschoolApp : MonoBehaviour
             int pauzeValue = PlayerPrefs.GetInt("PauzeTussenLessen", 0);
             pauzeTussenLessen.text = pauzeValue.ToString();
         }
+        Rooster.instance.UpdateDagOverzichtVisibility();
     }
 
     public void SetSchermActive(bool start, bool leraar, bool leerling, bool rooster)
@@ -1321,6 +1323,7 @@ public class RijschoolApp : MonoBehaviour
             showRoosterData[0].text = $"{startHour:D2}:00";
             showRoosterData[1].text = $"{endHour:D2}:00";
         }
+        BschkHeledag.text = $"Hele dag\n{startHour:D2}:00 - {endHour:D2}:00";
         Rooster.instance.LoadLessen(true);
         Rooster.instance.RefreshDisplay();
     }

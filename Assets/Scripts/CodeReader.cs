@@ -3,18 +3,12 @@ using TMPro;
 
 public class CodeReader : MonoBehaviour
 {
-    [SerializeField]
-    private TextMeshProUGUI codeText; // Referentie naar UI text element
-
     void Start()
     {
-        if (codeText != null)
-        {
-            codeText.text = "Waiting for code...";
-        }
-
+        // Registreer voor deeplink events
         Application.deepLinkActivated += OnDeepLinkActivated;
-        
+
+        // Check of de app is geopend via een deeplink
         if (!string.IsNullOrEmpty(Application.absoluteURL))
         {
             OnDeepLinkActivated(Application.absoluteURL);
@@ -23,36 +17,16 @@ public class CodeReader : MonoBehaviour
 
     private void OnDeepLinkActivated(string url)
     {
-        if (codeText != null)
+        // Parse de URL om de code te krijgen
+        // URL format: your-app-scheme://code/UNIQUE_CODE
+        string code = url.Split('/').Length > 2 ? url.Split('/')[2] : "";
+        if (!string.IsNullOrEmpty(code))
         {
-            codeText.text = "URL ontvangen: " + url;
-        }
-
-        // Parse the URL to get the code
-        if (url.Contains("code/"))
-        {
-            string[] parts = url.Split(new[] { "code/" }, System.StringSplitOptions.None);
-            if (parts.Length > 1)
-            {
-                string code = parts[1].Trim(); // Trim any whitespace
-                
-                // Remove any URL parameters if present
-                if (code.Contains("?"))
-                {
-                    code = code.Split('?')[0];
-                }
-                
-                if (codeText != null)
-                {
-                    codeText.text = "Code ontvangen: " + code;
-                }
-
-                if (UnityAnalyticsManager.Instance != null)
-                {
-                    UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
-                    codeText.text += "\nCode verstuurd naar Analytics";
-                }
-            }
+            // Gebruik de code in je app
+            Debug.Log("Ontvangen code: " + code);
+            UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
+            //PlayerPrefs.SetString("QRCode", code);
+            PlayerPrefs.Save();
         }
     }
 }

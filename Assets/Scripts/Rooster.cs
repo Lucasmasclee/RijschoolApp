@@ -62,6 +62,7 @@ public class Rooster : MonoBehaviour
     [SerializeField] private GameObject createLes;
 
     [SerializeField] private List<GameObject> nextLeerlingRoosterButtons;
+    [SerializeField] private List<GameObject> dagOverzichtLessen;
 
     [SerializeField] private List<TMP_InputField> leerlingoverzichtWoonplaats;
     [SerializeField] private List<TMP_InputField> leerlingoverzichtAdres;
@@ -99,6 +100,7 @@ public class Rooster : MonoBehaviour
 
     // Add this field with the other SerializeField declarations
     [SerializeField] private TextMeshProUGUI selectedDayText;
+    [SerializeField] private TextMeshProUGUI selectedDayText2;
 
     [SerializeField] private TextMeshProUGUI lesGeselecteerdText;  // Add this at the top with other SerializeFields
 
@@ -117,6 +119,15 @@ public class Rooster : MonoBehaviour
 
     [SerializeField] private GameObject KanNietKopieren;
     [SerializeField] private GameObject KanNietRoostermaken;
+
+    [SerializeField] private GameObject dagOverzicht;  // Add this line near other SerializeField declarations
+
+    // Add this field near the top of the class with other SerializeFields
+    [SerializeField] private GameObject timeIndicator;
+    [SerializeField] private GameObject timeIndicator2;
+
+    // Add this near the top with other SerializeField declarations
+    [SerializeField] private List<GameObject> currentDayIndicator = new List<GameObject>();
 
     private void Start()
     {
@@ -179,6 +190,9 @@ public class Rooster : MonoBehaviour
             LLKanLessenZienTrue.SetActive(PlayerPrefs.GetInt("LLKanLessenZien") == 1);
         }
         //LoadLessen(true);
+
+        // Check if dagOverzicht should be active
+        //UpdateDagOverzichtVisibility();
     }
 
     private void UpdateWeekDisplay()
@@ -210,6 +224,8 @@ public class Rooster : MonoBehaviour
         System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
 
         Debug.Log($"Moving to next week. SelectedWeek offset: {selectedWeek}, Target week number: {weekNum}");
         LoadLessen();
@@ -226,7 +242,9 @@ public class Rooster : MonoBehaviour
         System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
         int weekNum = ISOWeek.GetWeekOfYear(monday);
-        
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
+
         Debug.Log($"Moving to previous week. SelectedWeek offset: {selectedWeek}, Target week number: {weekNum}");
         LoadLessen();
     }
@@ -466,6 +484,8 @@ public class Rooster : MonoBehaviour
         //System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + 1);
         //monday = monday.AddDays(7 * selectedWeek);
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         //print("Weeknum: " + weekNum);
 
         // Find the week in the rooster
@@ -623,6 +643,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         // Only clear the pool if we're not also loading lessons
@@ -1059,6 +1081,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         if (roosterInstructor)
@@ -1371,6 +1395,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         var rijschool = RijschoolApp.instance.selectedRijschool;
@@ -1863,6 +1889,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         var rijschool = RijschoolApp.instance.selectedRijschool;
@@ -2100,8 +2128,9 @@ public class Rooster : MonoBehaviour
         DateTime now = DateTime.Now;
         
         // Find Monday of the current week
-        DateTime monday = now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday);
-        
+        //DateTime monday = now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday);
+        DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
+
         // Adjust for selected week
         monday = monday.AddDays(7 * weekOffset);
         
@@ -2122,6 +2151,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         var rijschool = RijschoolApp.instance.selectedRijschool;
@@ -2163,6 +2194,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         Debug.Log($"Starting week reset - Current selectedWeek offset: {selectedWeek}");
@@ -2578,6 +2611,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
         string selectedDag = GetDayName(selectedDay);
 
@@ -2691,13 +2726,13 @@ public class Rooster : MonoBehaviour
 
     public async void AddAfternoonAvailability()
     {
-        // Get current week info
         System.DateTime now = System.DateTime.Now;
         System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
 
-        monday = monday.AddDays(7 * selectedWeek);
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
         string selectedDag = GetDayName(selectedDay);
 
@@ -2817,6 +2852,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
         string selectedDag = GetDayName(selectedDay);
 
@@ -2847,7 +2884,7 @@ public class Rooster : MonoBehaviour
         }
 
         // Check for overlaps
-        if (HasOverlappingTimeSlot(existingSlots, "06:00", "22:00"))
+        if (HasOverlappingTimeSlot(existingSlots, PlayerPrefs.GetString("RoosterStartTime", "06:00"), PlayerPrefs.GetString("RoosterEndTime", "22:00")))
         {
             timeFormatWarning.SetActive(true);
             timeFormatWarning.GetComponentInChildren<TextMeshProUGUI>().text = "Tijdsloten overlappen";
@@ -2882,9 +2919,9 @@ public class Rooster : MonoBehaviour
 
             dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
             { 
-                startTijd = "06:00",
-                eindTijd = "22:00"
-            });
+                startTijd = PlayerPrefs.GetString("RoosterStartTime", "06:00"),
+                eindTijd = PlayerPrefs.GetString("RoosterEndTime", "22:00")
+        });
         }
         else if (RijschoolApp.instance.selectedLeerling != null)
         {
@@ -2914,8 +2951,8 @@ public class Rooster : MonoBehaviour
 
             dagBeschikbaarheid.tijdslots.Add(new TimeSlot 
             { 
-                startTijd = "06:00",
-                eindTijd = "22:00"
+                startTijd = PlayerPrefs.GetString("RoosterStartTime", "06:00"),
+                eindTijd = PlayerPrefs.GetString("RoosterEndTime", "22:00")
             });
         }
 
@@ -3137,6 +3174,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         // Check for overlapping lessons
@@ -3213,6 +3252,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         // Check for overlapping lessons
@@ -3259,6 +3300,23 @@ public class Rooster : MonoBehaviour
         LoadLessen();
     }
 
+    public async void ModifyLesNotities(TMP_InputField notitiesInput)
+    {
+        if (selectedLes == null) return;
+
+        string formattedEndTime = notitiesInput.text;
+
+        var rijschool = RijschoolApp.instance.selectedRijschool;
+
+        // If all validations pass, update the lesson
+        selectedLes.notities = formattedEndTime;
+        invalidTimeFormatWarning.SetActive(false);
+
+        // Save changes to server
+        await RijschoolApp.instance.UpdateRijschool(rijschool);
+        LoadLessen();
+    }
+
     public async void ConfirmLesTimeModification()
     {
         GameObject activePanel = roosterInstructor ? LeraarLesLeerlingLes[0] : LeraarLesLeerlingLes[1];
@@ -3295,6 +3353,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
         Debug.Log($"Checking for week {weekNum} of year {year}");
 
@@ -3593,10 +3653,10 @@ public class Rooster : MonoBehaviour
     public void UpdateSelectedDayText(int dayIndex)
     {
         // Get current date info
-        DateTime now = DateTime.Now;
-        DateTime monday = now.AddDays(-(int)now.DayOfWeek + (int)DayOfWeek.Monday);
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
         monday = monday.AddDays(7 * selectedWeek);
-        
+
         // Get the target date
         DateTime targetDate = monday.AddDays(dayIndex);
         
@@ -3619,6 +3679,9 @@ public class Rooster : MonoBehaviour
         if (selectedDayText != null)
         {
             selectedDayText.text = formattedDate;
+            // Convert DayOfWeek to our array index (Monday = 0, Sunday = 6)
+            int currentDayIndex = ((int)now.DayOfWeek + 6) % 7;
+            selectedDayText2.text = $"{dutchDayNames[currentDayIndex]} {now.Day} {dutchMonthNames[now.Month - 1]}";
         }
     }
 
@@ -3759,6 +3822,8 @@ public class Rooster : MonoBehaviour
         monday = monday.AddDays(7 * selectedWeek);
 
         int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
         int year = monday.Year;
 
         var rijschool = RijschoolApp.instance.selectedRijschool;
@@ -3855,6 +3920,388 @@ public class Rooster : MonoBehaviour
         catch (System.Exception e)
         {
             Debug.LogError($"[SaveManualLes] Error: {e.Message}\n{e.StackTrace}");
+        }
+    }
+
+    public void UpdateDagOverzichtVisibility()
+    {
+        if (dagOverzicht == null)
+        {
+            print("dagoverzicht null");
+            return;
+        }
+
+        var rijschool = RijschoolApp.instance?.selectedRijschool;
+        if (rijschool == null) return;
+
+        // Initialize rooster and weken if needed
+        if (rijschool.rooster == null)
+        {
+            rijschool.rooster = new LesRooster();
+        }
+        if (rijschool.rooster.weken == null)
+        {
+            rijschool.rooster.weken = new List<Week>();
+        }
+
+        // Get current week info - REMOVED selectedWeek offset since we want actual today's lessons
+        System.DateTime now = System.DateTime.Now;
+        System.DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
+        int weekNum = ISOWeek.GetWeekOfYear(monday);
+        weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+        int year = monday.Year;
+        string selectedDag = GetDayName(selectedDay);
+
+        // Find current week's lessons
+        var currentWeek = rijschool.rooster.weken
+            .FirstOrDefault(w => w.weekNummer == weekNum && w.jaar == year);
+
+        if (currentWeek?.lessen == null)
+        {
+            print("lessen null");
+            dagOverzicht.SetActive(false);
+            return;
+        }
+
+        // Get today's date in "dd-MM-yyyy" format
+        string todayDate = now.ToString("dd-MM-yyyy");
+        //print(todayDate);
+        //print(currentWeek.weekNummer);
+        //print("Week");
+
+        // Debug print all lessons in week
+        //print($"Total lessons in week: {currentWeek.lessen.Count}");
+        //foreach (var les in currentWeek.lessen)
+        //{
+        //    //print($"Lesson date: {les.datum}, Start: {les.begintijd}, End: {les.eindtijd}");
+        //    //// Add this debug line to check exact string comparison
+        //    //print($"Date comparison: '{les.datum}' == '{todayDate}' : {les.datum == todayDate}");
+        //}
+
+        // Get all lessons for today
+        var todaysLessons = currentWeek.lessen
+            .Where(l => l.datum == todayDate)
+            .OrderBy(l => TimeStringToMinutes(l.begintijd))
+            .ToList();
+
+        if (!todaysLessons.Any())
+        {
+            print("todayslessons null");
+            dagOverzicht.SetActive(false);
+            return;
+        }
+
+        // Get the last lesson of the day
+        var lastLesson = todaysLessons.Last();
+        print(lastLesson.leerlingNaam);
+        print(lastLesson.begintijd);
+        int lastLessonEndMinutes = TimeStringToMinutes(lastLesson.eindtijd);
+        int currentTimeMinutes = now.Hour * 60 + now.Minute;
+
+        // Set active if current time is before the end of the last lesson
+        if(currentTimeMinutes < lastLessonEndMinutes+120)
+        {
+            dagOverzicht.SetActive(true);
+            LoadDagOverzichtLessen(todaysLessons);
+            UpdateSelectedDayText(0);
+            RijschoolApp.instance.SetSchermActive(false, false, false, false);
+
+        }
+        else
+        {
+            dagOverzicht.SetActive(false);
+        }
+    }
+
+    private void LoadDagOverzichtLessen(List<Les> lessonstoday) 
+    {
+        print(lessonstoday.Count);
+        foreach(GameObject obj in dagOverzichtLessen)
+        {
+            obj.SetActive(false);
+        }
+        for(int i = 0; i<Math.Min(lessonstoday.Count,20); i++)
+        {
+            Les les = lessonstoday[i];
+            //print(i);
+
+            GameObject lesObject = dagOverzichtLessen[i];
+            //print(lesObject.name);
+
+            //Child gameobjects:
+            //Image lesimage = lesObject.transform.GetChild(1).GetComponent<Image>();
+            //lesImage.color = LESSON_BASE_COLOR;
+
+            GameObject selectedIndicator = lesObject.transform.GetChild(0).gameObject;
+
+            TextMeshProUGUI leerling = lesObject.transform.GetChild(2).GetComponent<TextMeshProUGUI>();
+            leerling.text = les.leerlingNaam;
+
+            TextMeshProUGUI starttijd = lesObject.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
+            starttijd.text = les.begintijd;
+
+            TextMeshProUGUI eindtijd = lesObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>();
+            eindtijd.text = les.eindtijd;
+
+            TMP_InputField notities = lesObject.transform.GetChild(8).GetComponent<TMP_InputField>();
+            notities.text = les.notities ?? "";
+
+            // Add click event listener for maps button
+            Button button = lesObject.transform.GetChild(7).GetComponent<Button>();
+            bool shouldBeInteractable = les != null &&
+                !string.IsNullOrWhiteSpace(RijschoolApp.instance?.selectedRijschool?.leerlingen
+                .FirstOrDefault(l => l.naam == les.leerlingNaam)?.adres);
+            button.interactable = shouldBeInteractable;
+
+            if (button != null)
+            {
+                button.onClick.RemoveAllListeners();
+                var student = RijschoolApp.instance?.selectedRijschool?.leerlingen
+                    .FirstOrDefault(l => l.naam == les.leerlingNaam);
+                string searchTerm = student.adres;
+                if (!string.IsNullOrWhiteSpace(student.woonPlaats) &&
+                    !searchTerm.Contains(student.woonPlaats, StringComparison.OrdinalIgnoreCase))
+                {
+                    searchTerm += $", {student.woonPlaats}";
+                }
+                string encodedAddress = UnityEngine.Networking.UnityWebRequest.EscapeURL(searchTerm);
+                string url = $"https://www.google.com/maps/search/?api=1&query={encodedAddress}";
+
+                button.onClick.AddListener(() => Application.OpenURL(url));
+            }
+
+            // Add notes modification listener
+            if (notities != null)
+            {
+                notities.onEndEdit.RemoveAllListeners();
+                
+                // Capture the current les and notities in the closure
+                Les currentLes = les;
+                TMP_InputField currentNotities = notities;
+                
+                notities.onEndEdit.AddListener(async (value) => {
+                    currentLes.notities = value;
+                    // Save changes to server
+                    await RijschoolApp.instance.UpdateRijschool(RijschoolApp.instance.selectedRijschool);
+                });
+            }
+            lesObject.SetActive(true);
+
+            // Get current time in minutes
+            DateTime now = DateTime.Now;
+            int currentTimeMinutes = now.Hour * 60 + now.Minute;
+
+            // Convert lesson times to minutes
+            int lesStartMinutes = TimeStringToMinutes(les.begintijd);
+            int lesEndMinutes = TimeStringToMinutes(les.eindtijd);
+
+            // Set indicator active if current time falls within lesson time
+            bool isCurrentLesson = currentTimeMinutes >= lesStartMinutes && currentTimeMinutes <= lesEndMinutes;
+            bool isNextLesson = currentTimeMinutes < lesStartMinutes && 
+                lessonstoday.Where(l => TimeStringToMinutes(l.begintijd) < lesStartMinutes)
+                    .All(l => TimeStringToMinutes(l.eindtijd) < currentTimeMinutes);
+
+            selectedIndicator.SetActive(isCurrentLesson || isNextLesson);
+
+            // If this is the current lesson or the next upcoming lesson, center it in the scroll view
+            if (isCurrentLesson || isNextLesson)
+            {
+
+                RectTransform scrollView = lesObject.transform.parent.GetComponent<RectTransform>();
+                scrollView.localPosition = new Vector3(scrollView.localPosition.x, Mathf.Clamp((i-1),1,lessonstoday.Count-2)*450,scrollView.localPosition.z);
+            }
+        }
+
+        // After handling all lessons, position the time indicator
+        if (timeIndicator != null)
+        {
+            UpdateTimeIndicatorPosition(lessonstoday);
+        }
+    }
+
+    // Add this new method
+    private void UpdateTimeIndicatorPosition(List<Les> lessons)
+    {
+        DateTime now = DateTime.Now;
+        int currentTimeMinutes = now.Hour * 60 + now.Minute;
+
+        // Sort lessons by start time
+        var sortedLessons = lessons.OrderBy(l => TimeStringToMinutes(l.begintijd)).ToList();
+
+        for (int i = 0; i < sortedLessons.Count; i++)
+        {
+            Les currentLesson = sortedLessons[i];
+            int lessonStartMinutes = TimeStringToMinutes(currentLesson.begintijd);
+            int lessonEndMinutes = TimeStringToMinutes(currentLesson.eindtijd);
+
+            if (currentTimeMinutes >= lessonStartMinutes && currentTimeMinutes <= lessonEndMinutes)
+            {
+                // Calculate position within lesson
+                float timeProgress = (float)(currentTimeMinutes - lessonStartMinutes) / (lessonEndMinutes - lessonStartMinutes);
+                float yOffset = timeProgress * 300;
+                
+                // Get the lesson GameObject's position
+                GameObject lessonObj = dagOverzichtLessen[i];
+                float basePosition = lessonObj.transform.position.y;
+
+                // Set time indicator position
+                timeIndicator.transform.localPosition = new Vector3(
+                    timeIndicator.transform.localPosition.x,
+                    basePosition - yOffset,
+                    timeIndicator.transform.localPosition.z
+                );
+                return;
+            }
+
+            // Check if current time is between this lesson and the next one
+            if (i < sortedLessons.Count - 1)
+            {
+                Les nextLesson = sortedLessons[i + 1];
+                int nextLessonStartMinutes = TimeStringToMinutes(nextLesson.begintijd);
+
+                if (currentTimeMinutes > lessonEndMinutes && currentTimeMinutes < nextLessonStartMinutes)
+                {
+                    // Calculate position within break
+                    float breakProgress = (float)(currentTimeMinutes - lessonEndMinutes) / (nextLessonStartMinutes - lessonEndMinutes);
+                    float yOffset = breakProgress * 350;
+
+                    // Get the current lesson GameObject's position
+                    GameObject lessonObj = dagOverzichtLessen[i];
+                    float basePosition = lessonObj.transform.position.y;
+
+                    // Set time indicator position
+                    timeIndicator.transform.localPosition = new Vector3(
+                        timeIndicator.transform.localPosition.x,
+                        basePosition - 300 - yOffset,
+                        timeIndicator.transform.localPosition.z
+                    );
+                    return;
+                }
+            }
+        }
+
+        timeIndicator.SetActive(false);
+    }
+
+    // Add this to ensure the time indicator updates regularly
+    private void Update()
+    {
+        if (dagOverzicht != null && dagOverzicht.activeSelf && timeIndicator != null)
+        {
+            var rijschool = RijschoolApp.instance?.selectedRijschool;
+            if (rijschool?.rooster?.weken != null)
+            {
+                // Get today's lessons
+                DateTime now = DateTime.Now;
+                string todayDate = now.ToString("dd-MM-yyyy");
+                int weekNum = ISOWeek.GetWeekOfYear(now);
+                weekNum = now.DayOfWeek == DayOfWeek.Sunday ? weekNum - 1 : weekNum;
+
+                var currentWeek = rijschool.rooster.weken
+                    .FirstOrDefault(w => w.weekNummer == weekNum && w.jaar == now.Year);
+
+                if (currentWeek?.lessen != null)
+                {
+                    var todaysLessons = currentWeek.lessen
+                        .Where(l => l.datum == todayDate)
+                        .OrderBy(l => TimeStringToMinutes(l.begintijd))
+                        .ToList();
+
+                    if (todaysLessons.Any())
+                    {
+                        UpdateTimeIndicatorPosition(todaysLessons);
+                    }
+                }
+            }
+        }
+
+        // New timeIndicator2 code
+        if (timeIndicator2 != null)
+        {
+            // Get current week info
+            DateTime now = DateTime.Now;
+            DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
+            int currentWeekNum = ISOWeek.GetWeekOfYear(monday);
+            //currentWeekNum = now.DayOfWeek == DayOfWeek.Sunday ? currentWeekNum - 1 : currentWeekNum;
+
+            // Get selected week info
+            DateTime selectedMonday = monday.AddDays(7 * selectedWeek);
+            int selectedWeekNum = ISOWeek.GetWeekOfYear(selectedMonday);
+            selectedWeekNum = selectedMonday.DayOfWeek == DayOfWeek.Sunday ? selectedWeekNum - 1 : selectedWeekNum;
+
+            // Check if we're in the current week
+            if (currentWeekNum == selectedWeekNum && now.Year == selectedMonday.Year)
+            {
+                // Get roster start and end times
+                string startTimeStr = PlayerPrefs.GetString("RoosterStartTime", "06:00");
+                string endTimeStr = PlayerPrefs.GetString("RoosterEndTime", "22:00");
+
+                int startMinutes = TimeStringToMinutes(startTimeStr);
+                int endMinutes = TimeStringToMinutes(endTimeStr);
+                int currentMinutes = now.Hour * 60 + now.Minute;
+
+                // Check if current time is within roster hours
+                if (currentMinutes >= startMinutes && currentMinutes <= endMinutes)
+                {
+                    timeIndicator2.SetActive(true);
+
+                    // Calculate position
+                    float timeProgress = (float)(currentMinutes - startMinutes) / (endMinutes - startMinutes);
+                    float yPosition = Mathf.Lerp(600f, -980f, timeProgress);
+
+                    // Update position
+                    Vector3 currentPos = timeIndicator2.transform.localPosition;
+                    timeIndicator2.transform.localPosition = new Vector3(currentPos.x, yPosition, currentPos.z);
+                }
+                else
+                {
+                    timeIndicator2.SetActive(false);
+                }
+            }
+            else
+            {
+                timeIndicator2.SetActive(false);
+            }
+        }
+
+        // Add this line at the end of Update
+        UpdateCurrentDayIndicators();
+    }
+
+    // Add this method to update the day indicators
+    private void UpdateCurrentDayIndicators()
+    {
+        // Get current week info
+        DateTime now = DateTime.Now;
+        DateTime monday = now.AddDays(-(int)now.DayOfWeek + (now.DayOfWeek == DayOfWeek.Sunday ? -6 : 1));
+        int currentWeekNum = ISOWeek.GetWeekOfYear(monday);
+        
+        // Get selected week info
+        DateTime selectedMonday = monday.AddDays(7 * selectedWeek);
+        int selectedWeekNum = ISOWeek.GetWeekOfYear(selectedMonday);
+
+        // Check if we're in the current week
+        bool isCurrentWeek = currentWeekNum == selectedWeekNum && now.Year == selectedMonday.Year;
+
+        // Deactivate all indicators first
+        foreach (var indicator in currentDayIndicator)
+        {
+            if (indicator != null)
+            {
+                indicator.SetActive(false);
+            }
+        }
+
+        // If it's the current week, activate the indicator for the current day
+        if (isCurrentWeek && currentDayIndicator.Count >= 7)
+        {
+            // Convert DayOfWeek to our index (Monday = 0, Sunday = 6)
+            int currentDayIndex = ((int)now.DayOfWeek + 6) % 7;
+            
+            if (currentDayIndex >= 0 && currentDayIndex < currentDayIndicator.Count)
+            {
+                currentDayIndicator[currentDayIndex].SetActive(true);
+            }
         }
     }
 }

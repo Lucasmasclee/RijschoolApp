@@ -2,8 +2,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
-const cookieParser = require('cookie-parser');
-const QRCode = require('qrcode');
+const shortid = require('shortid');
+const qr = require('qrcode');
 
 
 const app = express();
@@ -105,6 +105,14 @@ const RijschoolSchema = new mongoose.Schema({
 
 const Rijschool = mongoose.model("Rijschool", RijschoolSchema);
 
+// Schema voor het opslaan van codes
+const CodeSchema = new mongoose.Schema({
+    code: { type: String, required: true, unique: true },
+    createdAt: { type: Date, default: Date.now, expires: 86400 } // Verloopt na 24 uur
+});
+
+const Code = mongoose.model('Code', CodeSchema);
+
 // API-routes
 app.post("/api/rijscholen", async (req, res) => {
     try {
@@ -192,6 +200,84 @@ app.get("/api/rijscholen/:naam", async (req, res) => {
     }
 });
 
+// Endpoint om een nieuwe code en QR code te genereren
+app.post('/api/generate-qr', async (req, res) => {
+    try {
+        const uniqueCode = shortid.generate();
+        const newCode = new Code({ code: uniqueCode });
+        await newCode.save();
+
+        // Maak een deeplink URL
+        // Vervang 'your-app-scheme' met je eigen app scheme (bijvoorbeeld 'mijnerijschool')
+        // En vervang 'your-app-store-url' met de URL van je app in de store
+        const deeplinkUrl = `your-app-scheme://code/${uniqueCode}`;
+        const fallbackUrl = `https://your-app-store-url`;
+        const redirectUrl = `${process.env.SERVER_URL}/redirect/${uniqueCode}`;
+
+        // Genereer QR code
+        const qrCode = await qr.toDataURL(redirectUrl);
+
+        res.json({
+            code: uniqueCode,
+            qrCode: qrCode,
+            deeplinkUrl: deeplinkUrl
+        });
+    } catch (error) {
+        console.error('QR Generation error:', error);
+        res.status(500).json({ error: 'Er is iets misgegaan bij het genereren van de QR code' });
+    }
+});
+
+// Redirect endpoint voor wanneer de QR code gescand wordt
+app.get('/redirect/:code', async (req, res) => {
+    try {
+        const code = await Code.findOne({ code: req.params.code });
+        if (!code) {
+            return res.status(404).send('Code niet gevonden of verlopen');
+        }
+
+        // Detecteer het besturingssysteem
+        const userAgent = req.headers['user-agent'].toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(userAgent);
+        const isAndroid = /android/.test(userAgent);
+
+        // Vervang deze URLs met je eigen app URLs
+        const iosAppStoreUrl = 'https://apps.apple.com/your-app';
+        const androidPlayStoreUrl = 'https://play.google.com/store/apps/your-app';
+        const deeplinkUrl = `your-app-scheme://code/${req.params.code}`;
+
+        // HTML voor de redirect pagina
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Redirecting to app...</title>
+                <script>
+                    function redirect() {
+                        // Probeer eerst de app te openen
+                        window.location.href = "${deeplinkUrl}";
+                        
+                        // Als de app niet geïnstalleerd is, redirect naar de store na 1 seconde
+                        setTimeout(function() {
+                            window.location.href = "${isIOS ? iosAppStoreUrl : (isAndroid ? androidPlayStoreUrl : iosAppStoreUrl)}";
+                        }, 1000);
+                    }
+                </script>
+            </head>
+            <body onload="redirect()">
+                <h2>Je wordt doorgestuurd naar de app...</h2>
+            </body>
+            </html>
+        `;
+
+        res.send(html);
+    } catch (error) {
+        console.error('Redirect error:', error);
+        res.status(500).send('Er is iets misgegaan');
+    }
+});
+
 // Add a basic root route
 app.get("/", (req, res) => {
     res.json({ message: "Rijschool API is running" });
@@ -215,141 +301,6 @@ app.use((req, res, next) => {
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
     console.log('Cookies:', JSON.stringify(req.cookies, null, 2));
     next();
-});
-
-// Add response logging middleware
-app.use((req, res, next) => {
-    // Store the original res.send
-    const originalSend = res.send;
-    
-    // Override res.send to log the response
-    res.send = function(body) {
-        console.log('\n=== Outgoing Response ===');
-        console.log('Status:', res.statusCode);
-        console.log('Response Headers:', JSON.stringify(res.getHeaders(), null, 2));
-        console.log('Response Body:', body);
-        
-        // Call the original res.send
-        return originalSend.call(this, body);
-    };
-    
-    next();
-});
-
-// Voeg deze route toe voor de QR code landing page
-app.get('/qr/:code', (req, res) => {
-    const code = req.params.code.trim();
-    console.log('Received code:', code);
-
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Rijschool App Setup</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body>
-        <div id="content" style="text-align: center; padding: 20px;">
-            <h1>Welkom bij de Rijschool App</h1>
-            <p>Even geduld, we stellen je apparaat in...</p>
-            <p id="status"></p>
-            <p id="debug"></p>
-        </div>
-        <script>
-            const statusElement = document.getElementById('status');
-            const debugElement = document.getElementById('debug');
-            
-            try {
-                // Store the code directly without any URL parameters
-                const code = "${code}";
-                localStorage.setItem('rijschoolAppCode', code);
-                
-                // Debug output
-                statusElement.textContent = 'Code succesvol opgeslagen!';
-                
-                // Redirect to custom scheme URL or Play Store with code parameter
-                setTimeout(() => {
-                    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-                    if (/android/i.test(userAgent)) {
-                        // Try to open app first with deep link - send raw code
-                        window.location.href = 'rijschoolapp://code/' + code;
-                        
-                        // After a short delay, redirect to Play Store if app isn't installed
-                        setTimeout(() => {
-                            window.location.href = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner';
-                        }, 1000);
-                    } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-                        window.location.href = 'rijschoolapp://code/' + code;
-                        setTimeout(() => {
-                            window.location.href = 'https://apps.apple.com/app/id[jouw_app_id]';
-                        }, 1000);
-                    } else {
-                        statusElement.textContent = 'Download de app op je mobiele telefoon';
-                    }
-                }, 1000);
-            } catch (error) {
-                statusElement.textContent = 'Er ging iets mis: ' + error.message;
-                debugElement.textContent = 'Error details: ' + error;
-            }
-        </script>
-    </body>
-    </html>
-    `;
-    
-    res.send(html);
-});
-
-// Add a debug endpoint
-app.get('/debug-storage', (req, res) => {
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Debug Storage</title>
-    </head>
-    <body>
-        <h1>Storage Debug Info:</h1>
-        <div id="debug"></div>
-        <script>
-            const debugDiv = document.getElementById('debug');
-            try {
-                const code = localStorage.getItem('rijschoolAppCode');
-                const cookies = document.cookie;
-                debugDiv.innerHTML = '<p>localStorage code: ' + code + '</p>' +
-                    '<p>Cookies: ' + cookies + '</p>';
-            } catch (error) {
-                debugDiv.textContent = 'Error: ' + error;
-            }
-        </script>
-    </body>
-    </html>
-    `;
-    res.send(html);
-});
-
-// Route om QR code te genereren
-app.get('/generate-qr/:code', async (req, res) => {
-    try {
-        const url = `https://rijschoolapp.onrender.com/qr/${req.params.code}`;
-        const qrImage = await QRCode.toDataURL(url);
-        
-        const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>QR Code</title>
-        </head>
-        <body style="text-align: center; padding: 20px;">
-            <h1>Scan deze QR code</h1>
-            <img src="${qrImage}" alt="QR Code">
-        </body>
-        </html>
-        `;
-        
-        res.send(html);
-    } catch (error) {
-        res.status(500).send('Error generating QR code');
-    }
 });
 
 // Start server
