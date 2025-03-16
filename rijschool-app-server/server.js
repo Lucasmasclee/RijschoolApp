@@ -211,7 +211,7 @@ app.post('/api/generate-qr', async (req, res) => {
         // Vervang 'your-app-scheme' met je eigen app scheme (bijvoorbeeld 'mijnerijschool')
         // En vervang 'your-app-store-url' met de URL van je app in de store
         const deeplinkUrl = `your-app-scheme://code/${uniqueCode}`;
-        const fallbackUrl = `https://your-app-store-url`;
+        const fallbackUrl = `https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A`;
         const redirectUrl = `${process.env.SERVER_URL}/redirect/${uniqueCode}`;
 
         // Genereer QR code
@@ -243,7 +243,7 @@ app.get('/redirect/:code', async (req, res) => {
 
         // Vervang deze URLs met je eigen app URLs
         const iosAppStoreUrl = 'https://apps.apple.com/your-app';
-        const androidPlayStoreUrl = 'https://play.google.com/store/apps/your-app';
+        const androidPlayStoreUrl = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A';
         const deeplinkUrl = `your-app-scheme://code/${req.params.code}`;
 
         // HTML voor de redirect pagina
