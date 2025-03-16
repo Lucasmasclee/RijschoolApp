@@ -7,7 +7,6 @@ const qr = require('qrcode');
 
 
 const app = express();
-app.use(cookieParser());
 
 // Middleware
 app.use(express.json());
