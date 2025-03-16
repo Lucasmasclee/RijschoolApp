@@ -20,6 +20,10 @@
             .then(response => {
                 if (response.redirected) {
                     window.location.href = response.url; // Redirect naar de Play Store
+                } else {
+                    return response.json().then(data => {
+                        console.error("Error:", data.error); // Log de fout
+                    });
                 }
             })
             .catch(error => {

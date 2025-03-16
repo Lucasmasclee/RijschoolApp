@@ -339,14 +339,13 @@ app.get("/getCode", async (req, res) => {
 // Endpoint om een code op te slaan en door te verwijzen naar de Play Store
 app.post("/setCodeAndRedirect", async (req, res) => {
     const { deviceID, code } = req.body;
+    console.log("Received data:", req.body); // Log de ontvangen data
     try {
-        // Sla de code op
         const newCode = new SalesCode({ deviceID, code });
         await newCode.save();
-
-        // Redirect naar de Play Store
-        res.redirect("https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A");
+        res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
     } catch (error) {
+        console.error("Error saving code:", error); // Log de fout
         res.status(500).send({ error: "Fout bij opslaan van code" });
     }
 });
