@@ -207,7 +207,7 @@ app.all('/api/generate-qr', async (req, res) => {
         await newCode.save();
 
         // Maak een deeplink URL met de code
-        const deeplinkUrl = `your-app-scheme://code/${uniqueCode}`; // Deeplink met de unieke code
+        const deeplinkUrl = `rijlesplanner://code/${uniqueCode}`; // Deeplink met de unieke code
         const fallbackUrl = `https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A`;
         const redirectUrl = `${process.env.SERVER_URL}/redirect/${uniqueCode}`;
 
