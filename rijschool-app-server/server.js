@@ -200,7 +200,7 @@ app.get("/api/rijscholen/:naam", async (req, res) => {
 });
 
 // Endpoint om een nieuwe code en QR code te genereren
-app.post('/api/generate-qr', async (req, res) => {
+app.all('/api/generate-qr', async (req, res) => {
     try {
         const uniqueCode = shortid.generate();
         const newCode = new Code({ code: uniqueCode });
