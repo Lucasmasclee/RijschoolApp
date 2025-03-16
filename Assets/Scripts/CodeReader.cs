@@ -47,9 +47,9 @@ public class CodeReader : MonoBehaviour
                     codeText.text = "Code ontvangen: " + code;
                 }
 
-                if (UnityAnalyticsManager.instance != null)
+                if (UnityAnalyticsManager.Instance != null)
                 {
-                    UnityAnalyticsManager.instance.InstructorQRCode(code);
+                    UnityAnalyticsManager.Instance.InstructeurcodeQRCode(code);
                     codeText.text += "\nCode verstuurd naar Analytics";
                 }
             }
