@@ -112,6 +112,14 @@ const CodeSchema = new mongoose.Schema({
 
 const Code = mongoose.model('Code', CodeSchema);
 
+// SalesCode Schema
+const SalesCodeSchema = new mongoose.Schema({
+    deviceID: { type: String, required: true, unique: true },
+    code: { type: String, required: true }
+});
+
+const SalesCode = mongoose.model("SalesCode", SalesCodeSchema);
+
 // API-routes
 app.post("/api/rijscholen", async (req, res) => {
     try {
@@ -298,6 +306,33 @@ app.use((req, res, next) => {
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
     console.log('Cookies:', JSON.stringify(req.cookies, null, 2));
     next();
+});
+
+// Endpoint om een code op te slaan
+app.post("/storeCode", async (req, res) => {
+    const { deviceID, code } = req.body;
+    try {
+        const newCode = new SalesCode({ deviceID, code });
+        await newCode.save();
+        res.status(201).send({ message: "Code opgeslagen" });
+    } catch (error) {
+        res.status(500).send({ error: "Fout bij opslaan van code" });
+    }
+});
+
+// Endpoint om een code op te halen
+app.get("/getCode", async (req, res) => {
+    const { deviceID } = req.query;
+    try {
+        const salesCode = await SalesCode.findOne({ deviceID });
+        if (salesCode) {
+            res.send(salesCode.code);
+        } else {
+            res.status(404).send({ error: "Code niet gevonden" });
+        }
+    } catch (error) {
+        res.status(500).send({ error: "Fout bij ophalen van code" });
+    }
 });
 
 // Start server
