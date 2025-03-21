@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Instellen</title>
+    <script>
+        // Functie om de code in te stellen en door te verwijzen
+        function setCode() {
+            const deviceID = "UNIEKE_DEVICE_ID"; // Vervang dit door een echte deviceID
+            const code = "VERKOPER123"; // Vervang dit door de gewenste code
+
+            fetch("https://rijschoolapp.onrender.com/setCodeAndRedirect", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ deviceID, code })
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url; // Redirect naar de Play Store
+                } else {
+                    return response.json().then(data => {
+                        console.error("Error:", data.error); // Log de fout
+                    });
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+
+        // Voer de functie uit bij het laden van de pagina
+        window.onload = setCode;
+    </script>
+</head>
+<body>
+    <h1>Code wordt ingesteld...</h1>
+</body>
+</html>

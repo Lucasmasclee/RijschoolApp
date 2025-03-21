@@ -2,28 +2,37 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
+const shortid = require('shortid');
+const qr = require('qrcode');
+
 
 const app = express();
 
 // Middleware
 app.use(express.json());
 app.use(cors());
+app.use(express.static('public'));
+
 
 // Verbind met MongoDB
+// Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
         console.log("MongoDB successfully connected");
         console.log("Connection string:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@')); // Hide password in logs
+        console.log("Connection string:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@'));
     })
     .catch(err => {
         console.error("MongoDB connection error:", err);
         console.error("Connection string used:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@')); // Hide password in logs
+        console.error("Connection string used:", process.env.MONGO_URI.replace(/:[^:]*@/, ':****@'));
     });
 
 // Les Schema
 const LesSchema = new mongoose.Schema({
     begintijd: { type: String, required: true },
     eindtijd: { type: String, required: true },
+    notities: { type: String, default: "" },
     notities: { type: String },
     datum: { type: String, required: true },  // Format: "dd-MM-yyyy"
     weekNummer: { type: Number, required: true },
@@ -67,7 +76,12 @@ const LeerlingSchema = new mongoose.Schema({
     frequentie: { type: Number, required: true },
     colorIndex: { type: Number, required: true },
     minutesPerLes: { type: Number, default: 60 },
-    beschikbaarheid: [BeschikbaarheidSchema]
+    beschikbaarheid: [BeschikbaarheidSchema],
+    woonPlaats: { type: String },
+    adres: { type: String },  // New field
+    wachtwoord: { type: String },
+    woonPlaats: { type: String },  // New field
+    wachtwoord: { type: String }   // New field
 });
 
 // Rijschool Schema
@@ -75,6 +89,9 @@ const RijschoolSchema = new mongoose.Schema({
     naam: { type: String, required: true },
     beschrijving: { type: String },
     wachtwoord: { type: String, required: true },
+    woonPlaats: { type: String },
+    LLzienLessen: { type: Boolean, default: false },  // New field
+    woonPlaats: { type: String },  // New field
     leerlingen: [LeerlingSchema],
     rooster: {
         weken: [{
@@ -87,6 +104,22 @@ const RijschoolSchema = new mongoose.Schema({
 });
 
 const Rijschool = mongoose.model("Rijschool", RijschoolSchema);
+
+// Schema voor het opslaan van codes
+const CodeSchema = new mongoose.Schema({
+    code: { type: String, required: true, unique: true },
+    createdAt: { type: Date, default: Date.now, expires: 86400 } // Verloopt na 24 uur
+});
+
+const Code = mongoose.model('Code', CodeSchema);
+
+// SalesCode Schema
+const SalesCodeSchema = new mongoose.Schema({
+    deviceID: { type: String, required: true, unique: true },
+    code: { type: String, required: true }
+});
+
+const SalesCode = mongoose.model("SalesCode", SalesCodeSchema);
 
 // API-routes
 app.post("/api/rijscholen", async (req, res) => {
@@ -175,6 +208,82 @@ app.get("/api/rijscholen/:naam", async (req, res) => {
     }
 });
 
+// Endpoint om een nieuwe code en QR code te genereren
+app.all('/api/generate-qr', async (req, res) => {
+    try {
+        const uniqueCode = shortid.generate();
+        const newCode = new Code({ code: uniqueCode });
+        await newCode.save();
+
+        // Maak een deeplink URL met de code
+        const deeplinkUrl = `rijlesplanner://code/${uniqueCode}`; // Deeplink met de unieke code
+        const fallbackUrl = `https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A`;
+        const redirectUrl = `${process.env.SERVER_URL}/redirect/${uniqueCode}`;
+
+        // Genereer QR code
+        const qrCode = await qr.toDataURL(redirectUrl);
+
+        res.json({
+            code: uniqueCode,
+            qrCode: qrCode,
+            deeplinkUrl: deeplinkUrl // Stuur de deeplink terug in de response
+        });
+    } catch (error) {
+        console.error('QR Generation error:', error);
+        res.status(500).json({ error: 'Er is iets misgegaan bij het genereren van de QR code' });
+    }
+});
+
+// Redirect endpoint voor wanneer de QR code gescand wordt
+app.get('/redirect/:code', async (req, res) => {
+    try {
+        const code = await Code.findOne({ code: req.params.code });
+        if (!code) {
+            return res.status(404).send('Code niet gevonden of verlopen');
+        }
+
+        // Detecteer het besturingssysteem
+        const userAgent = req.headers['user-agent'].toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(userAgent);
+        const isAndroid = /android/.test(userAgent);
+
+        // Vervang deze URLs met je eigen app URLs
+        const iosAppStoreUrl = 'https://apps.apple.com/your-app';
+        const androidPlayStoreUrl = 'https://play.google.com/store/apps/details?id=com.Mascelli.RijlesPlanner&hl=en-US&ah=MbccWeflwmtbhkBBVOP3guaZc0A';
+        const deeplinkUrl = `your-app-scheme://code/${req.params.code}`;
+
+        // HTML voor de redirect pagina
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Redirecting to app...</title>
+                <script>
+                    function redirect() {
+                        // Probeer eerst de app te openen
+                        window.location.href = "${deeplinkUrl}";
+                        
+                        // Als de app niet geïnstalleerd is, redirect naar de store na 1 seconde
+                        setTimeout(function() {
+                            window.location.href = "${isIOS ? iosAppStoreUrl : (isAndroid ? androidPlayStoreUrl : iosAppStoreUrl)}";
+                        }, 1000);
+                    }
+                </script>
+            </head>
+            <body onload="redirect()">
+                <h2>Je wordt doorgestuurd naar de app...</h2>
+            </body>
+            </html>
+        `;
+
+        res.send(html);
+    } catch (error) {
+        console.error('Redirect error:', error);
+        res.status(500).send('Er is iets misgegaan');
+    }
+});
+
 // Add a basic root route
 app.get("/", (req, res) => {
     res.json({ message: "Rijschool API is running" });
@@ -188,6 +297,57 @@ app.use((err, req, res, next) => {
         details: err.message,
         stack: err.stack
     });
+});
+
+// Add these logging middleware before your routes
+app.use((req, res, next) => {
+    console.log('\n=== Incoming Request ===');
+    console.log('URL:', req.url);
+    console.log('Method:', req.method);
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Cookies:', JSON.stringify(req.cookies, null, 2));
+    next();
+});
+
+// Endpoint om een code op te slaan
+app.post("/storeCode", async (req, res) => {
+    const { deviceID, code } = req.body;
+    try {
+        const newCode = new SalesCode({ deviceID, code });
+        await newCode.save();
+        res.status(201).send({ message: "Code opgeslagen" });
+    } catch (error) {
+        res.status(500).send({ error: "Fout bij opslaan van code" });
+    }
+});
+
+// Endpoint om een code op te halen
+app.get("/getCode", async (req, res) => {
+    const { deviceID } = req.query;
+    try {
+        const salesCode = await SalesCode.findOne({ deviceID });
+        if (salesCode) {
+            res.send(salesCode.code);
+        } else {
+            res.status(404).send({ error: "Code niet gevonden" });
+        }
+    } catch (error) {
+        res.status(500).send({ error: "Fout bij ophalen van code" });
+    }
+});
+
+// Endpoint om een code op te slaan en door te verwijzen naar de Play Store
+app.post("/setCodeAndRedirect", async (req, res) => {
+    const { deviceID, code } = req.body;
+    console.log("Received data:", req.body); // Log de ontvangen data
+    try {
+        const newCode = new SalesCode({ deviceID, code });
+        await newCode.save();
+        res.redirect("https://play.google.com/apps/testing/com.Mascelli.RijlesPlanner");
+    } catch (error) {
+        console.error("Error saving code:", error); // Log de fout
+        res.status(500).send({ error: "Fout bij opslaan van code" });
+    }
 });
 
 // Start server
